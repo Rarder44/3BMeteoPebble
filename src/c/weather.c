@@ -141,7 +141,7 @@ static const uint32_t WEATHER_ICONS[] = {
 static void LoadCityLayer();
 static void LoadDaysLayer();
 static void LoadHoursLayer();
-
+static void menu_select_callback(int index, void *context);
 
 
 //Parte per memorizzare dati offline
@@ -476,6 +476,7 @@ static void RequestAllData()
 int NCities=0;*/
 
 
+
 static void inbox_received_callback(DictionaryIterator *iter, void *context) {
 		
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "Messaggio ricevuto");
@@ -491,38 +492,12 @@ static void inbox_received_callback(DictionaryIterator *iter, void *context) {
 			
 			 switch (num) {
 				case MESSAGE_INBOX_LIST_CITY:;	
-				 		FreeCities();
+				 
 				 		//nel 2 c'è il numero di città nella lista
 				 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Lista città");
 				 
-				 		Tuple *n = dict_find(iter, 2);
-				 		if(n){
-							NCities=n->value->uint8;
-							APP_LOG(APP_LOG_LEVEL_DEBUG, "Numero città: %d",NCities);
-							
-							Cities = (char**)malloc(sizeof(char*) * NCities);
-							for(int i=0;i<NCities;i++)
-							{
-								Tuple *c =dict_find(iter, 3+i);
-								if(c){
-									APP_LOG(APP_LOG_LEVEL_DEBUG, "città %d trovata",i);
-									APP_LOG(APP_LOG_LEVEL_DEBUG, "Nome: %s",c->value->cstring);
-									
-									
-									int asd=strlen(c->value->cstring)+1;
-									APP_LOG(APP_LOG_LEVEL_DEBUG, "L: %d",asd);
-									
-									
-									Cities[i]=(char*)malloc(asd * sizeof(char));
-									APP_LOG(APP_LOG_LEVEL_DEBUG, "allocato");
-									
-									strcpy(Cities[i], c->value->cstring);
-									
-									APP_LOG(APP_LOG_LEVEL_DEBUG, "Nome: %s",Cities[i]);
-								}
-							}
-						}
-				 		LoadCityLayer();
+				 		
+				 		LoadCityLayer(iter);
 				break;
 
 				case MESSAGE_INBOX_LIST_DAY:
@@ -649,40 +624,58 @@ static void RequestForceUpdate(void)
 
 
 
+static int CurrentCity=-1;
+static int CurrentDay=-1;
+//static int CurrentHour=-1;
 
+/*
+	Dizionario:
+	
+	1:messaggio
+	2:numero citta
+	3:nome citta 1
+	4:nome citta 2...
+*/
 static void LoadCityLayer(DictionaryIterator *iter)
 {
-	//resetto le variabili gia inizializzate
+	
 	/*if (Cities == 0)
 		return;*/
-	if (s_menu_items != 0)
-		free(s_menu_items);
-	s_menu_items = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NCities);
-	if (s_simple_menu_layer != 0)
-	{
-		layer_remove_from_parent((Layer *)s_simple_menu_layer);
-		simple_menu_layer_destroy(s_simple_menu_layer);
-		s_simple_menu_layer = 0;
-	}
+	
 
 
-
+	//ottengo il numero di citta
 	Tuple *n = dict_find(iter, 2);
 	if (n) {
 		int NCities = n->value->uint8;
+		
+		//resetto le variabili gia inizializzate
+		if (s_menu_items != 0)
+			free(s_menu_items);
+		s_menu_items = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NCities);
+		if (s_simple_menu_layer != 0)
+		{
+			layer_remove_from_parent((Layer *)s_simple_menu_layer);
+			simple_menu_layer_destroy(s_simple_menu_layer);
+			s_simple_menu_layer = 0;
+		}
+		CurrentCity=-1;
+		CurrentDay=-1;
+		
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Numero città: %d", NCities);
 
-		for (int i = 0;i < NCities;i++)
+		for (int i = 0;i < NDays;i++)
 		{
-			Tuple *c = dict_find(iter, 3 + i);
+			Tuple *c = dict_find(iter, 4 + i);
 			if (c) {
+				
+				
 				s_menu_items[i] = (SimpleMenuItem) {
 					.title = c->value->cstring,
 					.callback = menu_select_callback,
 				};
 			}
 		}
-
 
 		//creo il numeu e gli associo gli item
 		s_menu_sections[0] = (SimpleMenuSection) {
@@ -703,9 +696,95 @@ static void LoadCityLayer(DictionaryIterator *iter)
 	}
 }
 
+
+/*
+	Dizionario:
+	
+	1:messaggio
+	2:id citta
+	3:nome citta 1
+	4:nome citta 2...
+*/
+
 static void LoadDaysLayer(DictionaryIterator *iter)
 {
 	
+//ottengo il numero di giorni
+	Tuple *n = dict_find(iter, 2);
+	if (n) {
+		int NDays = n->value->uint8;
+		
+		//ottengo l'id della citta selezionata
+		n = dict_find(iter, 3);
+		if (n) {
+			int ncitta = n->value->uint8;
+			CurrentCity=ncitta;
+		}
+		else 
+			return;
+		
+		
+		
+		//resetto le variabili gia inizializzate
+		if (s_menu_items != 0)
+			free(s_menu_items);
+		s_menu_items = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NDays);
+		if (s_simple_menu_layer != 0)
+		{
+			layer_remove_from_parent((Layer *)s_simple_menu_layer);
+			simple_menu_layer_destroy(s_simple_menu_layer);
+			s_simple_menu_layer = 0;
+		}
+		CurrentDay=-1;
+		
+		
+		
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Numero giorni: %d", NDays);
+
+		
+
+		
+		for (int i = 0;i < NCities;i++)
+		{
+			Tuple *c = dict_find(iter, 3 + i*3 );
+			char* Titolo=malloc(c->length);
+			strcpy ( Titolo,  c->value->cstring );
+			
+			c = dict_find(iter, 3 + i*3 +1 );
+			char* Sottotitolo=malloc(c->length);
+			strcpy ( Sottotitolo,  c->value->cstring );
+			
+			
+			c = dict_find(iter, 3 + i*3 +1 );
+			int desc= n->value->uint32;
+			
+			
+			s_menu_items[i] = (SimpleMenuItem) {
+				.title = c->value->cstring,
+				
+				.callback = menu_select_callback,
+			};
+			
+		}
+
+
+		//creo il numeu e gli associo gli item
+		s_menu_sections[0] = (SimpleMenuSection) {
+			.num_items = NCities,
+				.items = s_menu_items,
+		};
+
+		//ottengo il layer su cui aggiungere il mio menu
+		Layer *window_layer = window_get_root_layer(s_main_window);
+		GRect bounds = layer_get_frame(window_layer);
+
+		//creo il nuovo layer
+		s_simple_menu_layer = simple_menu_layer_create(bounds, s_main_window, s_menu_sections, 1, NULL);
+
+		//lo aggiungo al layer principale
+		layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer));
+
+	}
 	
 }
 
@@ -748,7 +827,7 @@ static void LoadSmallInfoLayer()
 
 
 
-static void FreeCities()
+/*static void FreeCities()
 {
 	if (Cities != 0)
 	{
@@ -759,7 +838,7 @@ static void FreeCities()
 		free(Cities);
 		Cities = 0;
 	}
-}
+}*/
 
 
 
@@ -810,7 +889,7 @@ static void init(void) {
 static void deinit(void) {
   window_destroy(s_main_window);
 
-  app_sync_deinit(&s_sync);
+  /*app_sync_deinit(&s_sync);*/
 }
 
 int main(void) {

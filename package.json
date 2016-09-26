@@ -18,12 +18,6 @@
         "resources": {
             "media": [
                 {
-                    "file": "images/METEO_0",
-                    "name": "METEO_0",
-                    "targetPlatforms": null,
-                    "type": "bitmap"
-                },
-                {
                     "file": "images/sun.png",
                     "name": "IMAGE_SUN",
                     "type": "bitmap"
@@ -41,6 +35,12 @@
                 {
                     "file": "images/cloud.png",
                     "name": "IMAGE_CLOUD",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/METEO_0",
+                    "name": "METEO_0",
+                    "targetPlatforms": null,
                     "type": "bitmap"
                 }
             ]
