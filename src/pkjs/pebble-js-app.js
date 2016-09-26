@@ -29,6 +29,10 @@ var Messages= {
 	SendListCity:6,
 	SendListDay:7,
 	SendListHour:8,	
+	/*IncomingRequestAllData:9,
+	SendAllData:10,
+	IncomingRequestParametri:11,
+	SendParametri:12,*/
 };
 
 var LastUpdate;

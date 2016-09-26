@@ -10,22 +10,24 @@ static BitmapLayer *s_icon_layer;
 static GBitmap *s_icon_bitmap = NULL;
 static SimpleMenuLayer* s_simple_menu_layer=0;
 static SimpleMenuSection  s_menu_sections[1];
-static SimpleMenuItem* s_city_menu_items=0;
+static SimpleMenuItem* s_menu_items=0;
 
 
-static AppSync s_sync;
-static uint8_t s_sync_buffer[64];
 
 enum MessageKey {
-  MESSAGE_REQUEST_LIST_CITY = 0x0,         
-  MESSAGE_REQUEST_LIST_DAY = 0x1,
-  MESSAGE_REQUEST_LIST_HOUR = 0x2,        
+	MESSAGE_REQUEST_LIST_CITY = 0x0,         
+	MESSAGE_REQUEST_LIST_DAY = 0x1,
+	MESSAGE_REQUEST_LIST_HOUR = 0x2,        
 	MESSAGE_REQUEST_FORCE_UPDATE = 0x3,
 	MESSAGE_REQUEST_ADD_CITY= 0x4,
 	MESSAGE_REQUEST_REMOVE_CITY = 0x5,
 	MESSAGE_INBOX_LIST_CITY =0x6,
 	MESSAGE_INBOX_LIST_DAY= 0x7,
 	MESSAGE_INBOX_LIST_HOUR = 0x8,
+	/*MESSAGE_REQUEST_ALL_DATA = 0x9,
+	MESSAGE_INBOX_ALL_DATA = 0x10,
+	MESSAGE_REQUEST_PARAMETRI = 0x11,
+	MESSAGE_INBOX_PARAMETRI = 0x12,*/
 };
 
 static const uint32_t WEATHER_ICONS[] = {
@@ -135,41 +137,345 @@ static const uint32_t WEATHER_ICONS[] = {
 };
 
 
-static void FreeCities();
-static void LoadMenuLayer();
+//static void FreeCities();
 static void LoadCityLayer();
 static void LoadDaysLayer();
 static void LoadHoursLayer();
 
-/*static void sync_error_callback(DictionaryResult dict_error, AppMessageResult app_message_error, void *context) {
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "App Message Sync Error: %d", app_message_error);
+
+
+//Parte per memorizzare dati offline
+/*
+
+//questi parametri devono essere settati dal javascript
+#define VERSIONE_PARAMETRI 1
+static int Parametri[5];
+static int NumeroParametri = 5;
+
+
+//static int NUMERO_DATI_ORA = 8;
+//static int NUMERO_FASCIE_ORARIE = 24;
+//static int NUMERO_DATI_GIORNALIERI_ADDIZIONALI = 5;
+//static int NUMERO_DI_GIORNI = 15;
+//static int NUMERO_DATI_CITTA_ADDIZIONALI = 1;
+//
+//
+//
+//	Struttura storage:
+//
+//	VERSIONE_PARAMETRI
+//	NUMERO_DATI_ORA
+//	NUMERO_FASCIE_ORARIE
+//	NUMERO_DATI_GIORNALIERI_ADDIZIONALI
+//	NUMERO_DI_GIORNI
+//	NUMERO_DATI_CITTA_ADDIZIONALI
+//	numero città
+//
+//	Nome citta
+//	{
+//		nome giorno
+//		numero giorno
+//		temp min
+//		temp max
+//		desc giorno
+//		numero fascie orarie
+//		{
+//			ora
+//			desc
+//			temp
+//			temp percepita
+//			precipitazioni
+//			vento intesita
+//			vento direzione
+//			umidita %
+//		}
+//		{...}
+//	}{...}
+//	Nome Citta2
+//	{...}
+//
+//
+
+
+
+
+
+static bool CheckVersionStorage()
+{
+	if (persist_exists(0) && persist_read_int(0)== VERSIONE_PARAMETRI)
+		return true;
+	return false;
+}
+static bool LoadParametriDaStorage()
+{
+	if (persist_exists(1) && persist_exists(2) && persist_exists(3) && persist_exists(4) && persist_exists(5))
+	{
+		NUMERO_DATI_ORA = persist_read_int(1);
+		NUMERO_FASCIE_ORARIE = persist_read_int(2);
+		NUMERO_DATI_GIORNALIERI_ADDIZIONALI = persist_read_int(3);
+		NUMERO_DI_GIORNI = persist_read_int(4);
+		NUMERO_DATI_CITTA_ADDIZIONALI = persist_read_int(5);
+		return true;
+	}
+	return false;
+}
+static void RequestParametriDaJS()
+{
+	DictionaryIterator *iter;
+	app_message_outbox_begin(&iter);
+
+	if (!iter) {
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Errore invio richiesta dati orari");
+		return;
+	}
+
+	int value = MESSAGE_REQUEST_PARAMETRI;
+	dict_write_int(iter, 1, &value, sizeof(int), true);
+	dict_write_end(iter);
+	app_message_outbox_send();
+}
+static bool SetParametriFromJS(DictionaryIterator *iter)
+{
+	//numero di parametri
+	Tuple *n = dict_find(iter, 2);
+	if (n) {
+		int nparam = n->value->uint8;
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Numero parametri: %d", NCities);
+		if (nparam == 5)
+		{
+			for (int i = 0;i < nparam;i++)
+			{
+				Tuple *c = dict_find(iter, 3+i);
+				if (c) {
+					Parametri[i] = c->value->uint8;
+				}
+				else
+					return false;
+			}
+			return true;
+		}
+	}
+	return false;
+}
+static void LiteClearStorage()
+{
+	//semplicemente cancello la versione dello storage in modo che tutti i dati all'interno vengono invalidati e sovrascritti
+	if (persist_exists(0))
+		persist_delete(0);
+}
+static void HeavyClearStorage()
+{
+	//cancello tutti i dati
+	for (int i = 0;i < 4096;i++)
+		if (persist_exists(i))
+			persist_delete(i);
 }
 
-static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tuple, const Tuple* old_tuple, void* context) {
-  switch (key) {
-    case WEATHER_ICON_KEY:
-      if (s_icon_bitmap) {
-        gbitmap_destroy(s_icon_bitmap);
-      }
+//Struttura storage:
+//
+//VERSIONE_PARAMETRI
+//NUMERO_DATI_ORA
+//NUMERO_FASCIE_ORARIE
+//NUMERO_DATI_GIORNALIERI_ADDIZIONALI
+//NUMERO_DI_GIORNI
+//NUMERO_DATI_CITTA_ADDIZIONALI
+//numero città
+//
+//Nome citta
+//numero giorni
+//{
+//	nome giorno
+//	temp min
+//	temp max
+//	desc giorno
+//	numero fascie orarie
+//	{
+//		ora
+//		desc
+//		temp
+//		temp percepita
+//		precipitazioni
+//		vento intesita
+//		vento direzione
+//		umidita %
+//	}
+//	{...}
+//}{...}
+//	
+//Nome Citta2
+//{...}
 
-      s_icon_bitmap = gbitmap_create_with_resource(WEATHER_ICONS[new_tuple->value->uint8]);
-      bitmap_layer_set_compositing_mode(s_icon_layer, GCompOpSet);
-      bitmap_layer_set_bitmap(s_icon_layer, s_icon_bitmap);
-      break;
 
-    case WEATHER_TEMPERATURE_KEY:
-      // App Sync keeps new_tuple in s_sync_buffer, so we may use it directly
-      text_layer_set_text(s_temperature_layer, new_tuple->value->cstring);
-      break;
 
-    case WEATHER_CITY_KEY:
-      text_layer_set_text(s_city_layer, new_tuple->value->cstring);
-      break;
-  }
+static bool SetAllDataStorage(DictionaryIterator *iter)
+{
+	Tuple *n = dict_find(iter, 2);
+	if (n) {
+		int IndirizzoPartenzaStorage = 6;
+
+		int ncitta = n->value->uint32;
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Numero citta: %d", ncitta);
+
+		int PosCorrenteDict = 3;
+		for (int icitta = 0;icitta < ncitta;i++)
+		{
+
+			Tuple *c = dict_find(iter, ++PosCorrenteDict); //nome città
+			if (c)
+				persist_write_string(GetID_Citta(icitta)+1, c->value->cstring)
+			else
+				return false;
+
+			c = dict_find(iter, ++PosCorrenteDict);	//numero giorni
+			if (c)
+			{
+				int ngiorni = c->value->uint32;
+				for (int igiorni = 0;igiorni < ngiorni;i++)
+				{
+					c = dict_find(iter, ++PosCorrenteDict); //nome città
+					if (c)
+						persist_write_string(GetID_Giorno(icitta, igiorni) + 1, c->value->cstring)
+					else
+						return false;
+
+					c = dict_find(iter, ++PosCorrenteDict); //temp min
+					if (c)
+						persist_write_data(GetID_Giorno(icitta, igiorni) + 2, c->value->uint8,sizeof(uint8_t))
+					else
+						return false;
+
+					c = dict_find(iter, ++PosCorrenteDict); //temp max
+					if (c)
+						persist_write_data(GetID_Giorno(icitta, igiorni) + 3, c->value->uint8, sizeof(uint8_t))
+					else
+						return false;
+
+					c = dict_find(iter, ++PosCorrenteDict); //desc giorno
+					if (c)
+						persist_write_data(GetID_Giorno(icitta, igiorni) + 4, c->value->uint8, sizeof(uint8_t))
+					else
+						return false;
+
+					c = dict_find(iter, ++PosCorrenteDict); //desc giorno
+					if (c)
+						int nfascie = c->value->uint32;
+						for (int ifascie = 0;ifascie < nfascie;i++)
+						{
+							c = dict_find(iter, ++PosCorrenteDict); //ora
+							if (c)
+								persist_write_string(GetID_Ore(icitta, igiorni, ifascie) + 1, c->value->cstring)
+							else
+								return false;
+
+							c = dict_find(iter, ++PosCorrenteDict); //desc
+							if (c)
+								persist_write_data(GetID_Ore(icitta, igiorni, ifascie) + 2, c->value->uint8, sizeof(uint8_t))
+							else
+								return false;
+
+							c = dict_find(iter, ++PosCorrenteDict); //temp
+							if (c)
+								persist_write_data(GetID_Ore(icitta, igiorni, ifascie) + 3, c->value->uint8, sizeof(uint8_t))
+							else
+								return false;
+
+							c = dict_find(iter, ++PosCorrenteDict); //tempperc
+							if (c)
+								persist_write_data(GetID_Ore(icitta, igiorni, ifascie) + 4, c->value->uint8, sizeof(uint8_t))
+							else
+								return false;
+
+							c = dict_find(iter, ++PosCorrenteDict); //prec
+							if (c)
+								persist_write_data(GetID_Ore(icitta, igiorni, ifascie) + 5, c->value->uint8, sizeof(uint8_t))
+							else
+								return false;
+
+							c = dict_find(iter, ++PosCorrenteDict); //vent intes
+							if (c)
+								persist_write_data(GetID_Ore(icitta, igiorni, ifascie) + 6, c->value->uint8, sizeof(uint8_t))
+							else
+								return false;
+
+							c = dict_find(iter, ++PosCorrenteDict); //vent dir
+							if (c)
+								persist_write_string(GetID_Ore(icitta, igiorni, ifascie) + 7, c->value->cstring)
+							else
+								return false;
+
+							c = dict_find(iter, ++PosCorrenteDict); //umid
+							if (c)
+								persist_write_data(GetID_Ore(icitta, igiorni, ifascie) + 8, c->value->uint8, sizeof(uint8_t))
+							else
+								return false;
+						}
+					else
+						return false;
+				}
+			}
+			else
+				return false;
+
+			//DA COMPLETARE
+		}
+
+	}
+	return false;
+}
+
+
+static int NumeroDatiInGiorno()
+{
+	return NUMERO_FASCIE_ORARIE*NUMERO_DATI_ORA + NUMERO_DATI_GIORNALIERI_ADDIZIONALI;
+}
+static int NumeroDatiInCitta()
+{
+	return NUMERO_DI_GIORNI* NumeroDatiInGiorno();
+}
+
+static int GetID_Ore(int NCitta,int NGiorno,int Fascia)
+{
+	return GetID_Giorno(NCitta, NGiorno) + NUMERO_DATI_GIORNALIERI_ADDIZIONALI + 1 + NUMERO_DATI_ORA*Fascia;
+}
+static int GetID_Giorno(int NCitta, int NGiorno)
+{
+	return GetID_Citta(NCitta) + NUMERO_DATI_CITTA_ADDIZIONALI +1+ NumeroDatiInGiorno()*NGiorno ;
+}
+static int GetID_Citta(int NCitta)
+{
+	return NumeroDatiInCitta()*NCitta + NumeroParametri;
+}
+
+
+
+
+
+
+
+
+static void RequestAllData()
+{
+	DictionaryIterator *iter;
+	app_message_outbox_begin(&iter);
+
+	if (!iter) {
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Errore invio richiesta dati orari");
+		return;
+	}
+
+	int value = MESSAGE_REQUEST_ALL_DATA;
+	dict_write_int(iter, 1, &value, sizeof(int), true);
+	dict_write_end(iter);
+	app_message_outbox_send();
 }
 */
-static char **Cities=0;
-int NCities=0;
+
+
+
+/*static char **Cities=0;
+int NCities=0;*/
+
+
 static void inbox_received_callback(DictionaryIterator *iter, void *context) {
 		
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "Messaggio ricevuto");
@@ -226,9 +532,39 @@ static void inbox_received_callback(DictionaryIterator *iter, void *context) {
 				case MESSAGE_INBOX_LIST_HOUR:
 						
 				break;
+				/*case MESSAGE_INBOX_PARAMETRI:
+					APP_LOG(APP_LOG_LEVEL_DEBUG, "Parametri Arrivati");
+					//se non riesce a leggere il dizionario ( o ci sono problemi ) 
+					if (!SetParametriFromJS(iter))
+					{
+						APP_LOG(APP_LOG_LEVEL_DEBUG, "Errore nei dati letti dal JS");
+						//resetto la versione dello storage corrente
+						LiteClearStorage();
+						APP_LOG(APP_LOG_LEVEL_DEBUG, "Richiedo i parametri al JS");
+						//richiedo da JS i parametri
+						RequestParametriDaJS();
+					}
+				break;
+				case MESSAGE_REQUEST_ALL_DATA:
+					if (SetAllDataStorage(iter))
+					{
+						APP_LOG(APP_LOG_LEVEL_DEBUG, "Errore nel settagio di tutti i dati meteo");
+					}
+				break;
+				*/
+
 			}
 		}
 }
+
+
+
+
+
+
+
+
+
 
 static void RequestListCity(void) 
 {
@@ -257,7 +593,7 @@ static void RequestCitySmall(int City)
     return;
   }
 
-	int value=MESSAGE_INBOX_LIST_DAY;
+	int value= MESSAGE_REQUEST_LIST_DAY;
 	//l'1 la uso come posizione per il messaggio da inviare
 	//il 2 lo uso x l'ID della città
   dict_write_int(iter, 1 , &value, sizeof(int), true);
@@ -265,7 +601,6 @@ static void RequestCitySmall(int City)
   dict_write_end(iter);
   app_message_outbox_send();
 }
-
 
 static void RequestCityHour(int City,int Hour) 
 {
@@ -277,7 +612,7 @@ static void RequestCityHour(int City,int Hour)
     return;
   }
 
-	int value=MESSAGE_INBOX_LIST_HOUR;
+	int value= MESSAGE_REQUEST_LIST_HOUR;
 	//l'1 la uso come posizione per il messaggio da inviare
 	//il 2 lo uso x l'ID della città
 	//il 3 lo uso x l'ID dell'ora
@@ -287,7 +622,6 @@ static void RequestCityHour(int City,int Hour)
   dict_write_end(iter);
   app_message_outbox_send();
 }
-
 
 static void RequestForceUpdate(void)
 {
@@ -307,159 +641,137 @@ static void RequestForceUpdate(void)
 }
 
 
-static void FreeCities()
+
+
+
+
+
+
+
+
+
+static void LoadCityLayer(DictionaryIterator *iter)
 {
-	if(Cities!=0)
+	//resetto le variabili gia inizializzate
+	/*if (Cities == 0)
+		return;*/
+	if (s_menu_items != 0)
+		free(s_menu_items);
+	s_menu_items = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NCities);
+	if (s_simple_menu_layer != 0)
 	{
-		for (int i = 0; i <NCities; i++)
+		layer_remove_from_parent((Layer *)s_simple_menu_layer);
+		simple_menu_layer_destroy(s_simple_menu_layer);
+		s_simple_menu_layer = 0;
+	}
+
+
+
+	Tuple *n = dict_find(iter, 2);
+	if (n) {
+		int NCities = n->value->uint8;
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Numero città: %d", NCities);
+
+		for (int i = 0;i < NCities;i++)
 		{
-				free(Cities[i]);
-		}	
-		free(Cities);
-		Cities=0;
-	}
-}	
+			Tuple *c = dict_find(iter, 3 + i);
+			if (c) {
+				s_menu_items[i] = (SimpleMenuItem) {
+					.title = c->value->cstring,
+					.callback = menu_select_callback,
+				};
+			}
+		}
 
 
-static void LoadMenuLayer()
-{
-	//GBitmap *s_menu_icon_image = gbitmap_create_with_resource(RESOURCE_ID_METEO_0);
-	if(Cities==0)
-		return;
-	
-	if(s_city_menu_items!=0)
-		free(s_city_menu_items);
- s_city_menu_items = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NCities);
-
-
-	//s_menu_icon_image = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_MENU_ICON_1);
-	for (int i = 0; i <NCities; i++)
-	{
-		s_city_menu_items[i] = (SimpleMenuItem){
-		  .title = Cities[i],
-			//.subtitle = "100%-6 SEE-100%",
-    	//.callback = menu_select_callback,
-    	//.icon = s_menu_icon_image,
+		//creo il numeu e gli associo gli item
+		s_menu_sections[0] = (SimpleMenuSection) {
+			.num_items = NCities,
+				.items = s_menu_items,
 		};
+
+		//ottengo il layer su cui aggiungere il mio menu
+		Layer *window_layer = window_get_root_layer(s_main_window);
+		GRect bounds = layer_get_frame(window_layer);
+
+		//creo il nuovo layer
+		s_simple_menu_layer = simple_menu_layer_create(bounds, s_main_window, s_menu_sections, 1, NULL);
+
+		//lo aggiungo al layer principale
+		layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer));
+
 	}
+}
 
-  s_menu_sections[0] = (SimpleMenuSection) {
-    .num_items = NCities,
-    .items = s_city_menu_items,
-  };
-
-  Layer *window_layer = window_get_root_layer(s_main_window);
-  GRect bounds = layer_get_frame(window_layer);
-
+static void LoadDaysLayer(DictionaryIterator *iter)
+{
 	
-	if(s_simple_menu_layer!=0)
-		free(s_simple_menu_layer);
-	
-	s_simple_menu_layer = simple_menu_layer_create(bounds, s_main_window, s_menu_sections, 1, NULL);
-
-  layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer));
- 
 	
 }
+
+static void LoadHoursLayer(DictionaryIterator *iter)
+{
+	
+	
+}
+
 static void LoadSmallInfoLayer()
 {
 	Layer *window_layer = window_get_root_layer(s_main_window);
-  GRect bounds = layer_get_bounds(window_layer);
+	GRect bounds = layer_get_bounds(window_layer);
 
-  s_icon_layer = bitmap_layer_create(GRect(0, 10, bounds.size.w, 80));
-  layer_add_child(window_layer, bitmap_layer_get_layer(s_icon_layer));
+	s_icon_layer = bitmap_layer_create(GRect(0, 10, bounds.size.w, 80));
+	layer_add_child(window_layer, bitmap_layer_get_layer(s_icon_layer));
 
-  s_temperature_layer = text_layer_create(GRect(0, 90, bounds.size.w, 32));
-  text_layer_set_text_color(s_temperature_layer, GColorWhite);
-  text_layer_set_background_color(s_temperature_layer, GColorClear);
-  text_layer_set_font(s_temperature_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
-  text_layer_set_text_alignment(s_temperature_layer, GTextAlignmentCenter);
-  layer_add_child(window_layer, text_layer_get_layer(s_temperature_layer));
+	s_temperature_layer = text_layer_create(GRect(0, 90, bounds.size.w, 32));
+	text_layer_set_text_color(s_temperature_layer, GColorWhite);
+	text_layer_set_background_color(s_temperature_layer, GColorClear);
+	text_layer_set_font(s_temperature_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+	text_layer_set_text_alignment(s_temperature_layer, GTextAlignmentCenter);
+	layer_add_child(window_layer, text_layer_get_layer(s_temperature_layer));
 
-  s_city_layer = text_layer_create(GRect(0, 122, bounds.size.w, 32));
-  text_layer_set_text_color(s_city_layer, GColorWhite);
-  text_layer_set_background_color(s_city_layer, GColorClear);
-  text_layer_set_font(s_city_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
-  text_layer_set_text_alignment(s_city_layer, GTextAlignmentCenter);
-  layer_add_child(window_layer, text_layer_get_layer(s_city_layer));
-	
+	s_city_layer = text_layer_create(GRect(0, 122, bounds.size.w, 32));
+	text_layer_set_text_color(s_city_layer, GColorWhite);
+	text_layer_set_background_color(s_city_layer, GColorClear);
+	text_layer_set_font(s_city_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+	text_layer_set_text_alignment(s_city_layer, GTextAlignmentCenter);
+	layer_add_child(window_layer, text_layer_get_layer(s_city_layer));
+
 }
+
+
+
+
+
+
+
+
+
+
+static void FreeCities()
+{
+	if (Cities != 0)
+	{
+		for (int i = 0; i <NCities; i++)
+		{
+			free(Cities[i]);
+		}
+		free(Cities);
+		Cities = 0;
+	}
+}
+
+
+
+
+
+
+
 
 static void menu_select_callback(int index, void *context)
 {
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "index click: %d", index);
 }
-static void LoadCityLayer()
-{
-
-	//resetto le variabili gia inizializzate
-	if(Cities==0)
-		return;
-
-	
-	if(s_city_menu_items!=0)
-		free(s_city_menu_items);
-
-	
- 	s_city_menu_items = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NCities);
-
-	
-	if(s_simple_menu_layer!=0)
-	{
-
-		layer_remove_from_parent((Layer *)s_simple_menu_layer);
-
-		simple_menu_layer_destroy(s_simple_menu_layer);
-
-		s_simple_menu_layer=0;
-	}
-
-	
-	//creo gli item del menu contenenti il nome delle città
-	for (int i = 0; i <NCities; i++)
-	{
-		s_city_menu_items[i] = (SimpleMenuItem){
-		  .title = Cities[i],
-			.callback = menu_select_callback,
-		};
-	}
-
-
-	//creo il numeu e gli associo gli item
-  s_menu_sections[0] = (SimpleMenuSection) {
-    .num_items = NCities,
-    .items = s_city_menu_items,
-  };
-
-
-	
-	//ottengo il layer su cui aggiungere il mio menu
-  Layer *window_layer = window_get_root_layer(s_main_window);
-  GRect bounds = layer_get_frame(window_layer);
-	
-
-	//creo il nuovo layer
-	s_simple_menu_layer = simple_menu_layer_create(bounds, s_main_window, s_menu_sections, 1, NULL);
-
-	
-	//lo aggiungo al layer principale
-  layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer));
-	
-}
-
-static void LoadDaysLayer()
-{
-	
-	
-}
-
-static void LoadHoursLayer()
-{
-	
-	
-}
-
-
 
 static void window_load(Window *window) {
  
