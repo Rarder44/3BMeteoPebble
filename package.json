@@ -18,6 +18,13 @@
         "resources": {
             "media": [
                 {
+                    "file": "images/LOGO.png",
+                    "menuIcon": true,
+                    "name": "LOGO",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
+                {
                     "file": "images/sun.png",
                     "name": "IMAGE_SUN",
                     "type": "bitmap"

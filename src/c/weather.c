@@ -2,17 +2,24 @@
 
 
 
-static Window *s_main_window;
+static Window *window_city;
+static SimpleMenuLayer* s_simple_menu_layer_city=0;
+static SimpleMenuSection  s_menu_sections_city[1];
+static SimpleMenuItem* s_menu_items_city=0;
+static int s_menu_items_city_count=0;
 
-static TextLayer *s_temperature_layer;
-static TextLayer *s_city_layer;
-static BitmapLayer *s_icon_layer;
-
-static SimpleMenuLayer* s_simple_menu_layer=0;
-static SimpleMenuSection  s_menu_sections[1];
-static SimpleMenuItem* s_menu_items=0;
+static Window *window_day=0;
+static SimpleMenuLayer* s_simple_menu_layer_day=0;
+static SimpleMenuSection  s_menu_sections_day[1];
+static SimpleMenuItem* s_menu_items_day=0;
+static int s_menu_items_day_count=0;
 
 
+static Window *window_hour=0;
+static SimpleMenuLayer* s_simple_menu_layer_hour=0;
+static SimpleMenuSection  s_menu_sections_hour[1];
+static SimpleMenuItem* s_menu_items_hour=0;
+static int s_menu_items_hour_count=0;
 
 enum MessageKey {
 	MESSAGE_REQUEST_LIST_CITY = 0x0,         
@@ -480,33 +487,33 @@ int NCities=0;*/
 
 static void inbox_received_callback(DictionaryIterator *iter, void *context) {
 		
+	
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "Messaggio ricevuto");
   // nell'1 c'è sempre il messaggio 
 	 	Tuple *t = dict_find(iter, 1);
 		if(t) {
-			int num=t->value->uint8;
+			int num=t->value->uint32;
 			APP_LOG(APP_LOG_LEVEL_DEBUG, "mex n: %d", num);
 			
 			//stampare una variabile
-			char* snum=malloc(sizeof(char)*10);
-			snprintf(snum, 10, "%d", num);
+			/*char* snum=malloc(sizeof(char)*10);
+			snprintf(snum, 10, "%d", num);*/
 			
 			 switch (num) {
 				case MESSAGE_INBOX_LIST_CITY:;	
-				 
-				 		//nel 2 c'è il numero di città nella lista
+
 				 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Lista città");
-				 
-				 		
 				 		LoadCityLayer(iter);
 				break;
 
 				case MESSAGE_INBOX_LIST_DAY:
-						
+						APP_LOG(APP_LOG_LEVEL_DEBUG, "Lista gioni");
+						LoadDaysLayer(iter);
 				break;
 
 				case MESSAGE_INBOX_LIST_HOUR:
-						
+				 APP_LOG(APP_LOG_LEVEL_DEBUG, "Lista ore");
+						LoadHoursLayer(iter);
 				break;
 				/*case MESSAGE_INBOX_PARAMETRI:
 					APP_LOG(APP_LOG_LEVEL_DEBUG, "Parametri Arrivati");
@@ -561,6 +568,7 @@ static void RequestListCity(void)
 
 static void RequestListDay(int City) 
 {
+	
   DictionaryIterator *iter;
   app_message_outbox_begin(&iter);
 
@@ -568,14 +576,15 @@ static void RequestListDay(int City)
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Errore invio richiesta dati small");
     return;
   }
-
+	
 	int value= MESSAGE_REQUEST_LIST_DAY;
 	//l'1 la uso come posizione per il messaggio da inviare
 	//il 2 lo uso x l'ID della città
   dict_write_int(iter, 1 , &value, sizeof(int), true);
 	dict_write_int(iter, 2 , &City, sizeof(int), true);
   dict_write_end(iter);
-  app_message_outbox_send();
+	
+	app_message_outbox_send();
 }
 
 static void RequestListHours(int City,int Hour)
@@ -605,7 +614,6 @@ static void RequestForceUpdate(void)
   app_message_outbox_begin(&iter);
 
   if (!iter) {
-		text_layer_set_text(s_city_layer, "Error r");
     return;
   }
 
@@ -625,8 +633,97 @@ static void RequestForceUpdate(void)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 static int CurrentCity=-1;
 static int CurrentDay=-1;
+
+
+
+
+static void window_unload(Window *window) {
+
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "Window distrutta");
+	if( window == window_hour)
+	{
+		CurrentDay=-1;
+		window_hour=0;
+		
+		for(int i=0;i<s_menu_items_hour_count;i++)
+				gbitmap_destroy(s_menu_items_hour[i].icon);
+		
+	}
+	else if( window == window_day)
+	{
+		CurrentDay=-1;
+		CurrentCity=-1;
+		window_day=0;
+		
+		for(int i=0;i<s_menu_items_day_count;i++)
+				gbitmap_destroy(s_menu_items_day[i].icon);
+	}
+	else if( window == window_city)
+	{
+		window_city=0;
+	}
+	
+	window_destroy(window);
+	
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 //static int CurrentHour=-1;
 
 /*
@@ -651,14 +748,15 @@ static void LoadCityLayer(DictionaryIterator *iter)
 		int NCities = n->value->uint8;
 		
 		//resetto le variabili gia inizializzate
-		if (s_menu_items != 0)
-			free(s_menu_items);
-		s_menu_items = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NCities);
-		if (s_simple_menu_layer != 0)
+		if (s_menu_items_city != 0)
+			free(s_menu_items_city);
+		s_menu_items_city = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NCities);
+		s_menu_items_city_count=NCities;
+		if (s_simple_menu_layer_city != 0)
 		{
-			layer_remove_from_parent((Layer *)s_simple_menu_layer);
-			simple_menu_layer_destroy(s_simple_menu_layer);
-			s_simple_menu_layer = 0;
+			layer_remove_from_parent((Layer *)s_simple_menu_layer_city);
+			simple_menu_layer_destroy(s_simple_menu_layer_city);
+			s_simple_menu_layer_city = 0;
 		}
 		CurrentCity=-1;
 		CurrentDay=-1;
@@ -669,31 +767,36 @@ static void LoadCityLayer(DictionaryIterator *iter)
 		{
 			Tuple *c = dict_find(iter, 3 + i);
 			if (c) {
-				s_menu_items[i] = (SimpleMenuItem) {
-					.title = c->value->cstring,
+				char* Titolo=malloc(c->length);
+				strcpy ( Titolo,  c->value->cstring );
+				
+				s_menu_items_city[i] = (SimpleMenuItem) {
+					.title = Titolo,
 					.callback = menu_select_callback,
 				};
 			}
 		}
 
 		//creo il numeu e gli associo gli item
-		s_menu_sections[0] = (SimpleMenuSection) {
+		s_menu_sections_city[0] = (SimpleMenuSection) {
 			.num_items = NCities,
-				.items = s_menu_items,
+				.items = s_menu_items_city,
 		};
 
 		//ottengo il layer su cui aggiungere il mio menu
-		Layer *window_layer = window_get_root_layer(s_main_window);
+		Layer *window_layer = window_get_root_layer(window_city);
 		GRect bounds = layer_get_frame(window_layer);
 
 		//creo il nuovo layer
-		s_simple_menu_layer = simple_menu_layer_create(bounds, s_main_window, s_menu_sections, 1, NULL);
+		s_simple_menu_layer_city = simple_menu_layer_create(bounds, window_city, s_menu_sections_city, 1, NULL);
 
 		//lo aggiungo al layer principale
-		layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer));
-
+		layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer_city));
 	}
 }
+
+
+
 
 
 /*
@@ -708,43 +811,49 @@ static void LoadCityLayer(DictionaryIterator *iter)
 */
 static void LoadDaysLayer(DictionaryIterator *iter)
 {
-	
+
 	//ottengo il numero di giorni
 	Tuple *n = dict_find(iter, 2);
 	if (n) {
 		int NDays = n->value->uint8;
 		
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Numero giorni: %d", NDays);
+		
 		//ottengo l'id della citta selezionata
 		n = dict_find(iter, 3);
 		if (n) {
-			int ncitta = n->value->uint8;
-			CurrentCity=ncitta;
+			CurrentCity=n->value->uint8;
 		}
 		else 
 			return;
 		
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "id città: %d", 	CurrentCity);
+		
+		
 		
 		
 		//resetto le variabili gia inizializzate
-		if (s_menu_items != 0)
-			free(s_menu_items);
-		s_menu_items = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NDays);
-		if (s_simple_menu_layer != 0)
+		if (s_menu_items_day != 0)
+			free(s_menu_items_day);
+		
+		s_menu_items_day = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NDays);
+		s_menu_items_day_count=NDays;
+		if (s_simple_menu_layer_day != 0)
 		{
-			layer_remove_from_parent((Layer *)s_simple_menu_layer);
-			simple_menu_layer_destroy(s_simple_menu_layer);
-			s_simple_menu_layer = 0;
+			layer_remove_from_parent((Layer *)s_simple_menu_layer_day);
+			simple_menu_layer_destroy(s_simple_menu_layer_day);
+			s_simple_menu_layer_day = 0;
 		}
 		CurrentDay=-1;
 		
 		
-		
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Numero giorni: %d", NDays);
-
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Old var liberate");
 		
 
 		
-		for (int i = 0;i < NCities;i++)
+
+		
+		for (int i = 0;i < NDays;i++)
 		{
 			Tuple *c = dict_find(iter, 4 + i*3 );
 			char* Titolo=malloc(c->length);
@@ -759,36 +868,64 @@ static void LoadDaysLayer(DictionaryIterator *iter)
 			int desc= n->value->uint32;
 			GBitmap *s_menu_icon_image = GetBitmapFromID(desc);
 			
-			s_menu_items[i] = (SimpleMenuItem) {
+			s_menu_items_day[i] = (SimpleMenuItem) {
 				.title = Titolo,
 				.subtitle= Sottotitolo,
 				.callback = menu_select_callback,
 				.icon = s_menu_icon_image,
 			};
 			
-			gbitmap_destroy(s_menu_icon_image);
+			//gbitmap_destroy(s_menu_icon_image);
 		}
-
+		
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Menu items creati");
 
 		//creo il numeu e gli associo gli item
-		s_menu_sections[0] = (SimpleMenuSection) {
-			.num_items = NCities,
-			.items = s_menu_items,
+		s_menu_sections_day[0] = (SimpleMenuSection) {
+			.num_items = NDays,
+			.items = s_menu_items_day,
 		};
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "items associati alla sezione");
 
+		//window_hour
+		if(window_day!=0)
+		{
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "trovata vecchia window_day");
+			window_destroy(window_day);
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "vecchia window distrutta");
+		}
+		
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "controllo win completato");
+		
+		window_day = window_create();
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Window creata");
+		
+		window_set_background_color(window_day, GColorFromHEX(0x1461A1));
+		window_set_window_handlers(window_day, (WindowHandlers) {
+			.unload = window_unload
+		});
+		
+		
+		
 		//ottengo il layer su cui aggiungere il mio menu
-		Layer *window_layer = window_get_root_layer(s_main_window);
+		Layer *window_layer = window_get_root_layer(window_day);
 		GRect bounds = layer_get_frame(window_layer);
 
 		//creo il nuovo layer
-		s_simple_menu_layer = simple_menu_layer_create(bounds, s_main_window, s_menu_sections, 1, NULL);
+		s_simple_menu_layer_day = simple_menu_layer_create(bounds, window_day, s_menu_sections_day, 1, NULL);
 
 		//lo aggiungo al layer principale
-		layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer));
+		layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer_day));
 
-	}
+		
+		window_stack_push(window_day, true);
+	}	
 	
 }
+
+
+
+
 
 
 /*
@@ -830,14 +967,15 @@ static void LoadHoursLayer(DictionaryIterator *iter)
 			return;
 
 		//resetto le variabili gia inizializzate
-		if (s_menu_items != 0)
-			free(s_menu_items);
-		s_menu_items = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NDays);
-		if (s_simple_menu_layer != 0)
+		if (s_menu_items_hour != 0)
+			free(s_menu_items_hour);
+		s_menu_items_hour = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NHours);
+		s_menu_items_hour_count=NHours;
+		if (s_simple_menu_layer_hour != 0)
 		{
-			layer_remove_from_parent((Layer *)s_simple_menu_layer);
-			simple_menu_layer_destroy(s_simple_menu_layer);
-			s_simple_menu_layer = 0;
+			layer_remove_from_parent((Layer *)s_simple_menu_layer_hour);
+			simple_menu_layer_destroy(s_simple_menu_layer_hour);
+			s_simple_menu_layer_hour = 0;
 		}
 
 
@@ -860,40 +998,63 @@ static void LoadHoursLayer(DictionaryIterator *iter)
 			int desc = n->value->uint32;
 			GBitmap *s_menu_icon_image = GetBitmapFromID(desc);
 
-			s_menu_items[i] = (SimpleMenuItem) {
+			s_menu_items_hour[i] = (SimpleMenuItem) {
 				.title = Titolo,
 				.subtitle = Sottotitolo,
 				.callback = menu_select_callback,
 				.icon = s_menu_icon_image,
 			};
 
-			gbitmap_destroy(s_menu_icon_image);
+			//gbitmap_destroy(s_menu_icon_image);
 		}
 
 
 		//creo il numeu e gli associo gli item
-		s_menu_sections[0] = (SimpleMenuSection) {
+		s_menu_sections_hour[0] = (SimpleMenuSection) {
 			.num_items = NHours,
-				.items = s_menu_items,
+				.items = s_menu_items_hour,
 		};
 
+			//window_hour
+		if(window_hour!=0)
+		{
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "trovata vecchia window_day");
+			window_destroy(window_hour);
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "vecchia window distrutta");
+		}
+		
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "controllo win completato");
+		
+		window_hour = window_create();
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Window creata");
+		
+		window_set_background_color(window_hour, GColorFromHEX(0x1461A1));
+		window_set_window_handlers(window_hour, (WindowHandlers) {
+			.unload = window_unload
+		});
+		
+		
+		
 		//ottengo il layer su cui aggiungere il mio menu
-		Layer *window_layer = window_get_root_layer(s_main_window);
+		Layer *window_layer = window_get_root_layer(window_hour);
 		GRect bounds = layer_get_frame(window_layer);
 
 		//creo il nuovo layer
-		s_simple_menu_layer = simple_menu_layer_create(bounds, s_main_window, s_menu_sections, 1, NULL);
+		s_simple_menu_layer_hour = simple_menu_layer_create(bounds, window_hour, s_menu_sections_hour, 1, NULL);
 
 		//lo aggiungo al layer principale
-		layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer));
+		layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer_hour));
 
+		
+		window_stack_push(window_hour, true);
+		
 	}
 
 }
-
+/*
 static void LoadSmallInfoLayer()
 {
-	Layer *window_layer = window_get_root_layer(s_main_window);
+	Layer *window_layer = window_get_root_layer(window_city);
 	GRect bounds = layer_get_bounds(window_layer);
 
 	s_icon_layer = bitmap_layer_create(GRect(0, 10, bounds.size.w, 80));
@@ -913,7 +1074,7 @@ static void LoadSmallInfoLayer()
 	text_layer_set_text_alignment(s_city_layer, GTextAlignmentCenter);
 	layer_add_child(window_layer, text_layer_get_layer(s_city_layer));
 
-}
+}*/
 
 
 
@@ -921,7 +1082,8 @@ static void LoadSmallInfoLayer()
 
 static GBitmap * GetBitmapFromID(int id)
 {
-	return gbitmap_create_with_resource(WEATHER_ICONS[id));
+	//METTERE ID AL POSTO DI 0
+	return gbitmap_create_with_resource(WEATHER_ICONS[0]);
 }
 
 
@@ -950,6 +1112,16 @@ static GBitmap * GetBitmapFromID(int id)
 static void menu_select_callback(int index, void *context)
 {
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "index click: %d", index);
+	if(CurrentCity== -1 && CurrentDay==-1)
+	{
+		//cliccato sulla citta, carico la lista dei giorni
+		RequestListDay(index);
+	}
+	else if(CurrentCity!= -1 && CurrentDay==-1)
+	{
+		//cliccato sul giorno, carico la lista delle ore
+		RequestListHours(CurrentCity,index);
+	}
 }
 
 static void window_load(Window *window) {
@@ -958,36 +1130,29 @@ static void window_load(Window *window) {
   
   //app_sync_init(&s_sync, s_sync_buffer, sizeof(s_sync_buffer),      initial_values, ARRAY_LENGTH(initial_values),      sync_tuple_changed_callback, sync_error_callback, NULL);
 	app_message_register_inbox_received(inbox_received_callback);
-	
+	app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
 	
 
   //RequestForceUpdate();
 }
 
-static void window_unload(Window *window) {
-  if (s_icon_bitmap) {
-    gbitmap_destroy(s_icon_bitmap);
-  }
 
-  text_layer_destroy(s_city_layer);
-  text_layer_destroy(s_temperature_layer);
-  bitmap_layer_destroy(s_icon_layer);
-}
 
 static void init(void) {
-  s_main_window = window_create();
-  window_set_background_color(s_main_window, GColorFromHEX(0x1461A1));
-  window_set_window_handlers(s_main_window, (WindowHandlers) {
+  window_city = window_create();
+  window_set_background_color(window_city, GColorFromHEX(0x1461A1));
+  window_set_window_handlers(window_city, (WindowHandlers) {
     .load = window_load,
     .unload = window_unload
   });
-  window_stack_push(s_main_window, true);
+  window_stack_push(window_city, true);
 
-  app_message_open(64, 64);
 }
 
 static void deinit(void) {
-  window_destroy(s_main_window);
+  window_destroy(window_city);
+	window_destroy(window_day);
+	window_destroy(window_hour);
 
   /*app_sync_deinit(&s_sync);*/
 }

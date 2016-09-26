@@ -5,6 +5,16 @@ if (!Date.nowSecond) {
     Date.nowSecond=function() { return Date.now()/1000;};
 }
 
+Object.size = function(obj) {
+    var size = 0, key;
+    for (key in obj) {
+        if (obj.hasOwnProperty(key)) size++;
+    }
+    return size;
+};
+
+
+
 
 
 /*
@@ -36,36 +46,56 @@ var Messages= {
 };
 
 var LastUpdate;
+function SaveLastUpdate()
+{
+	localStorage.setItem('LastUpdate',LastUpdate);
+	console.log("salvato LastUpdate: "+LastUpdate);
+}
+function LoadLastUpdate()
+{
+	try {
+       LastUpdate=JSON.parse(localStorage.getItem('LastUpdate'));
+			if(LastUpdate==null)
+				LastUpdate=0;
+    } catch (e) {
+       LastUpdate=0;
+    }
+}
+
 
 var MeteoArray;
 function SaveMeteoArray()
 {
-	localStorage.setItem('MeteoArray',JSON.stringify(MeteoArray));
+	var v=JSON.stringify(MeteoArray);
+	localStorage.setItem('MeteoArray',v);
+	console.log("salvate MeteoArray: "+v);
 }
 function LoadMeteoArray()
 {
 	try {
        MeteoArray=JSON.parse(localStorage.getItem('MeteoArray'));
 			if(MeteoArray==null)
-				MeteoArray=[];
+				MeteoArray={};
     } catch (e) {
-       MeteoArray=[];
+       MeteoArray={};
     }
 }
 
 var MeteoArraySmall;
 function SaveMeteoArraySmall()
 {
-	localStorage.setItem('MeteoArraySmall', JSON.stringify(MeteoArraySmall));
+	var v=JSON.stringify(MeteoArraySmall);
+	localStorage.setItem('MeteoArraySmall',v);
+	console.log("salvate MeteoArraySmall: "+v);
 }
 function LoadMeteoArraySmall()
 {
 	try {
        MeteoArraySmall=JSON.parse(localStorage.getItem('MeteoArraySmall'));
 			if(MeteoArraySmall==null)
-				MeteoArraySmall=[];
+				MeteoArraySmall={};
     } catch (e) {
-       MeteoArraySmall=[];
+       MeteoArraySmall={};
     }
 }
 
@@ -85,7 +115,7 @@ function LoadListaCity()
 				ListaCity=[];
     } catch (e) {
 	
-       ListaCity=[];
+       ListaCity=[]
     }
 	
 }
@@ -131,49 +161,75 @@ function SendListCity()
 	});
 }
 
+/*
+	1:messaggio
+	2:numero giorni
+	3:id citta
+	4:Titolo G 1
+	5:Sottotitolo G 1
+	6:desc G 1
+*/
 function SendListDay(City)
 {
+	console.log('Inizio invio Lista giorni della citta: '+City+" -> "+ListaCity[City]);
+	
+	
 	UpdateAll(false,function(){
 		var v={1: Messages.SendListDay}; //numero messaggio 
-		v[2]=MeteoArraySmall[City].length; //numero giorni ( x ogni giorno ci sono 5 elementi -> Ngiorni*5=ToTEl  )
-		var n=3;
+		v[2]=MeteoArraySmall[ListaCity[City]].length; //numero giorni ( x ogni giorno ci sono 3 elementi -> Ngiorni*3=ToTEl  )
+		v[3]=City;
+		var n=4;
 		
 		//prendo tutti i dati di ogni giorno ( small ) e li invio
-		MeteoArraySmall[City].forEach(function (item) {
-			v[n++]=item[0];
-			v[n++]=item[1];
-			v[n++]=item[2];
-			v[n++]=item[3];
+		MeteoArraySmall[ListaCity[City]].forEach(function (item) {
+			v[n++]=item[0]+" "+item[1];		
+			v[n++]=item[2]+" "+item[3];		
 			v[n++]=item[4];
 		});
+		
+		console.log(JSON.stringify(v));
+		//var v={1:Messages.SendListDay,2:1,3:0,4:"mer 24",5:"25 27",6:0};
 		Pebble.sendAppMessage(v);
+		console.log('Lista giorni inviata');
 	});
 }
 
+/*
+1:messaggio
+2:numero ore
+3:id citta
+4:id giorno
+5:Titolo O 1
+6:Sottotitolo O 1
+7:desc O 1
+*/
 function SendListHour(City,Day)
 {
 	UpdateAll(false,function(){
 		var v={1: Messages.SendListHour}; //numero messaggio 
 		 //numero di orari ( x ogni orario ci sono 7 elementi + orario -> 8 ->   Ngiorni*8=ToTEl  )
-		v[2]=MeteoArray[City][Day].length-3; //-3 perche: index 0 è il nome del giorno| 1 numero giorno| "S" small data
-		var n=3;
+		v[2]=Object.keys(MeteoArray[ListaCity[City]][Day]).length-3; //-3 perche: index 0 è il nome del giorno| 1 numero giorno| "S" small data
+		v[3]=City;
+		v[4]=Day;
 		
-		var target=MeteoArray[City][Day];
+		
+		var n=5;
+		
+		var target=MeteoArray[ListaCity[City]][Day];
+		console.log(JSON.stringify(target));
 		for (var k in target){
 			if (target.hasOwnProperty(k)) {
-				if(k!==0 && k!==1 && k!="S")
+				if(k!=0 && k!=1 && k!="S")
 				{
-					v[n++]=k; //orario in formato stringa
+					v[n++]=k+" "+target[k][1]+"-"+target[k][2]; //titolo
+					v[n++]=target[k][3]+"/"+target[k][4]+" "+target[k][5]+"/"+target[k][6];	
 					v[n++]=target[k][0];//descrizione
-					v[n++]=target[k][1];//temperatura
-					v[n++]=target[k][2];//temperatura percepita
-					v[n++]=target[k][3];//precipitazioni
-					v[n++]=target[k][4];//vento intensità
-					v[n++]=target[k][5];//vento direzione
-					v[n++]=target[k][6];//umidità in percentuale
 				}
 			}
 		}
+		console.log(City+" "+Day);
+		console.log(JSON.stringify(MeteoArray[ListaCity[City]]));
+		console.log(JSON.stringify(v));
 		Pebble.sendAppMessage(v);
 	});
 }
@@ -182,16 +238,21 @@ function SendListHour(City,Day)
 
 function UpdateAll(forceUpdate,callback)
 {
+		//forceUpdate=true;
 		//se è passata piu di un ora o l'aggiornamento è forzato
 		if((Date.nowSecond()-LastUpdate)>3600 || forceUpdate)
 		{
 			//ottengo il numero delle città e inizializzo un contatore
 			var Len=ListaCity.length;
+			console.log("Numero Di citta: "+Len);
 			var current=-1;
-			
-			var LoopUpdate=function(callback1){
+			MeteoArray={};
+			MeteoArraySmall={};
+			var LoopUpdate=function(){
+				
 				//	aumento il contatore
 				current++;
+				console.log("Contatore "+current);
 				//se è ancora nella lunghezza del vettore
 				if(current<Len)
 				{
@@ -199,14 +260,16 @@ function UpdateAll(forceUpdate,callback)
 					FetchWeather(ListaCity[current],LoopUpdate);
 				}	
 				else //altrimenti richiamo la callback
-					callback1();
+				{
+					LastUpdate=Date.nowSecond();
+					SaveLastUpdate();
+					callback();
+				}	
+				
 			};
 		
 			//richiamo il loop e la callback va a settare la data di aggiornamento dei dati 
-			LoopUpdate(function(){
-				LastUpdate=Date.nowSecond();
-				callback();
-			});				
+			LoopUpdate();				
 		}	
 		else
 			callback();
@@ -234,6 +297,7 @@ function FetchWeather(luogo,callback) {
 		return false;
 	FetchWeatherEnd=false;
   var req = new XMLHttpRequest();
+	console.log('http://lpozzi.it/3bmeteo/?luogo='+luogo);
   req.open('GET', 'http://lpozzi.it/3bmeteo/?luogo='+luogo, true);
   req.onload = function () {
 		console.log(req.readyState);
@@ -245,15 +309,18 @@ function FetchWeather(luogo,callback) {
 				MeteoArray[luogo]=response;
 				MeteoArraySmall[luogo]=[];
 				response.forEach(function (item) {
-					MeteoArraySmall[luogo].push(item[0]);
-					MeteoArraySmall[luogo].push(item[1]);
-					item.S.forEach(function (item1) {
-						MeteoArraySmall[luogo].push(item1);
+					//MeteoArraySmall[luogo].push(item[0]);
+					//MeteoArraySmall[luogo].push(item[1]);
+					var temp=[];
+					item["S"].forEach(function (item1) {
+						temp.push(item1);
 						});
+					MeteoArraySmall[luogo].push(temp);
 				});
 				SaveMeteoArray();
 				SaveMeteoArraySmall();
 				FetchWeatherEnd=true;
+				console.log("fine fetch");
 				callback();
         /*Pebble.sendAppMessage({
 					1: "ASD" + '\xB0C',
@@ -274,7 +341,7 @@ function FetchWeather(luogo,callback) {
 function AddCity(City,callback)
 {
 	if(typeof ListaCity ==="undefined" || ListaCity.constructor !== Array)
-	  ListaCity=[];
+	  ListaCity={};
 	
 	ListaCity.push(City);
  	SaveListaCity();
@@ -284,7 +351,7 @@ function AddCity(City,callback)
 function RemoveCity(City)
 {
 	if(typeof ListaCity ==="undefined" || ListaCity.constructor !== Array)
-	  ListaCity=[];
+	  ListaCity={};
  	else
 	{
 		var indice=ListaCity.indexOf(City);
@@ -300,7 +367,7 @@ function RemoveCity(City)
 function RemoveCityFromIndex(CityIndex)
 {
 	if(typeof ListaCity ==="undefined" || ListaCity.constructor !== Array)
-	  ListaCity=[];
+	  ListaCity={};
  	else
 	{
 		if(CityIndex!=-1)
@@ -350,8 +417,11 @@ Pebble.addEventListener('ready', function (e) {
 	LoadMeteoArray();
 	LoadMeteoArraySmall();
 	LoadListaCity();
+	LoadLastUpdate();
 	
 	
+	
+	LastUpdate=0;
 	
 
 	
@@ -380,9 +450,12 @@ Pebble.addEventListener('webviewclosed', function (e) {
 			console.log(temp);
 			if(temp!=null)
 				ListaCity=temp;
-		
+			
 			SaveListaCity();
-			SendListCity();
+			UpdateAll(true,function(){
+				SendListCity();
+			});
+			
     } catch (ee) {
     }
 	
@@ -394,3 +467,8 @@ Pebble.addEventListener('showConfiguration', function() {
 
   Pebble.openURL(url);
 });
+
+
+
+
+
