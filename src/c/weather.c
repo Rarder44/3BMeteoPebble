@@ -7,7 +7,7 @@ static Window *s_main_window;
 static TextLayer *s_temperature_layer;
 static TextLayer *s_city_layer;
 static BitmapLayer *s_icon_layer;
-static GBitmap *s_icon_bitmap = NULL;
+
 static SimpleMenuLayer* s_simple_menu_layer=0;
 static SimpleMenuSection  s_menu_sections[1];
 static SimpleMenuItem* s_menu_items=0;
@@ -142,6 +142,7 @@ static void LoadCityLayer();
 static void LoadDaysLayer();
 static void LoadHoursLayer();
 static void menu_select_callback(int index, void *context);
+static GBitmap * GetBitmapFromID(int id);
 
 
 //Parte per memorizzare dati offline
@@ -558,7 +559,7 @@ static void RequestListCity(void)
   app_message_outbox_send();
 }
 
-static void RequestCitySmall(int City) 
+static void RequestListDay(int City) 
 {
   DictionaryIterator *iter;
   app_message_outbox_begin(&iter);
@@ -577,7 +578,7 @@ static void RequestCitySmall(int City)
   app_message_outbox_send();
 }
 
-static void RequestCityHour(int City,int Hour) 
+static void RequestListHours(int City,int Hour)
 {
   DictionaryIterator *iter;
   app_message_outbox_begin(&iter);
@@ -664,12 +665,10 @@ static void LoadCityLayer(DictionaryIterator *iter)
 		
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Numero città: %d", NCities);
 
-		for (int i = 0;i < NDays;i++)
+		for (int i = 0;i < NCities;i++)
 		{
-			Tuple *c = dict_find(iter, 4 + i);
+			Tuple *c = dict_find(iter, 3 + i);
 			if (c) {
-				
-				
 				s_menu_items[i] = (SimpleMenuItem) {
 					.title = c->value->cstring,
 					.callback = menu_select_callback,
@@ -701,15 +700,16 @@ static void LoadCityLayer(DictionaryIterator *iter)
 	Dizionario:
 	
 	1:messaggio
-	2:id citta
-	3:nome citta 1
-	4:nome citta 2...
+	2:numero giorni
+	3:id citta
+	4:Titolo G 1
+	5:Sottotitolo G 1
+	6:desc G 1
 */
-
 static void LoadDaysLayer(DictionaryIterator *iter)
 {
 	
-//ottengo il numero di giorni
+	//ottengo il numero di giorni
 	Tuple *n = dict_find(iter, 2);
 	if (n) {
 		int NDays = n->value->uint8;
@@ -746,32 +746,34 @@ static void LoadDaysLayer(DictionaryIterator *iter)
 		
 		for (int i = 0;i < NCities;i++)
 		{
-			Tuple *c = dict_find(iter, 3 + i*3 );
+			Tuple *c = dict_find(iter, 4 + i*3 );
 			char* Titolo=malloc(c->length);
 			strcpy ( Titolo,  c->value->cstring );
 			
-			c = dict_find(iter, 3 + i*3 +1 );
+			c = dict_find(iter, 4 + i*3 +1 );
 			char* Sottotitolo=malloc(c->length);
 			strcpy ( Sottotitolo,  c->value->cstring );
 			
 			
-			c = dict_find(iter, 3 + i*3 +1 );
+			c = dict_find(iter, 4 + i*3 +1 );
 			int desc= n->value->uint32;
-			
+			GBitmap *s_menu_icon_image = GetBitmapFromID(desc);
 			
 			s_menu_items[i] = (SimpleMenuItem) {
-				.title = c->value->cstring,
-				
+				.title = Titolo,
+				.subtitle= Sottotitolo,
 				.callback = menu_select_callback,
+				.icon = s_menu_icon_image,
 			};
 			
+			gbitmap_destroy(s_menu_icon_image);
 		}
 
 
 		//creo il numeu e gli associo gli item
 		s_menu_sections[0] = (SimpleMenuSection) {
 			.num_items = NCities,
-				.items = s_menu_items,
+			.items = s_menu_items,
 		};
 
 		//ottengo il layer su cui aggiungere il mio menu
@@ -788,10 +790,105 @@ static void LoadDaysLayer(DictionaryIterator *iter)
 	
 }
 
+
+/*
+Dizionario:
+
+1:messaggio
+2:numero ore
+3:id citta
+4:id giorno
+5:Titolo O 1
+6:Sottotitolo O 1
+7:desc O 1
+*/
 static void LoadHoursLayer(DictionaryIterator *iter)
 {
-	
-	
+
+	//ottengo il numero di giorni
+	Tuple *n = dict_find(iter, 2);
+	if (n) {
+		int NHours = n->value->uint8;
+
+		//ottengo l'id della citta selezionata
+		n = dict_find(iter, 3);
+		if (n) {
+			int ncitta = n->value->uint8;
+			CurrentCity = ncitta;
+		}
+		else
+			return;
+
+
+		//ottengo l'id del giorno selezionato
+		n = dict_find(iter, 4);
+		if (n) {
+			int nday = n->value->uint8;
+			CurrentDay = nday;
+		}
+		else
+			return;
+
+		//resetto le variabili gia inizializzate
+		if (s_menu_items != 0)
+			free(s_menu_items);
+		s_menu_items = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NDays);
+		if (s_simple_menu_layer != 0)
+		{
+			layer_remove_from_parent((Layer *)s_simple_menu_layer);
+			simple_menu_layer_destroy(s_simple_menu_layer);
+			s_simple_menu_layer = 0;
+		}
+
+
+
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Numero fasce orarie: %d", NHours);
+
+
+		for (int i = 0;i < NHours;i++)
+		{
+			Tuple *c = dict_find(iter, 5 + i * 3);
+			char* Titolo = malloc(c->length);
+			strcpy(Titolo, c->value->cstring);
+
+			c = dict_find(iter,5 + i * 3 + 1);
+			char* Sottotitolo = malloc(c->length);
+			strcpy(Sottotitolo, c->value->cstring);
+
+
+			c = dict_find(iter, 5 + i * 3 + 1);
+			int desc = n->value->uint32;
+			GBitmap *s_menu_icon_image = GetBitmapFromID(desc);
+
+			s_menu_items[i] = (SimpleMenuItem) {
+				.title = Titolo,
+				.subtitle = Sottotitolo,
+				.callback = menu_select_callback,
+				.icon = s_menu_icon_image,
+			};
+
+			gbitmap_destroy(s_menu_icon_image);
+		}
+
+
+		//creo il numeu e gli associo gli item
+		s_menu_sections[0] = (SimpleMenuSection) {
+			.num_items = NHours,
+				.items = s_menu_items,
+		};
+
+		//ottengo il layer su cui aggiungere il mio menu
+		Layer *window_layer = window_get_root_layer(s_main_window);
+		GRect bounds = layer_get_frame(window_layer);
+
+		//creo il nuovo layer
+		s_simple_menu_layer = simple_menu_layer_create(bounds, s_main_window, s_menu_sections, 1, NULL);
+
+		//lo aggiungo al layer principale
+		layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer));
+
+	}
+
 }
 
 static void LoadSmallInfoLayer()
@@ -822,7 +919,10 @@ static void LoadSmallInfoLayer()
 
 
 
-
+static GBitmap * GetBitmapFromID(int id)
+{
+	return gbitmap_create_with_resource(WEATHER_ICONS[id));
+}
 
 
 
