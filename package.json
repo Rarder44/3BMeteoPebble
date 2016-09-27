@@ -1,13 +1,13 @@
 {
-    "author": "Pebble Technology",
+    "author": "Rarder",
     "dependencies": {},
     "keywords": [],
-    "name": "pebblejs-weather",
+    "name": "3bmeteo",
     "pebble": {
         "capabilities": [
             "configurable"
         ],
-        "displayName": "PebbleJS Weather",
+        "displayName": "3BMeteo",
         "enableMultiJS": false,
         "messageKeys": {
             "WEATHER_CITY_KEY": 2,
@@ -420,10 +420,10 @@
         "targetPlatforms": [
             "basalt"
         ],
-        "uuid": "58b11e78-914c-4d1c-8876-279555b8e30a",
+        "uuid": "aaa0a37b-6da2-4f13-8406-55fed7c4cc2c",
         "watchapp": {
             "watchface": false
         }
     },
-    "version": "2.0.0"
+    "version": "1.0.0"
 }

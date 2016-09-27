@@ -867,7 +867,7 @@ static void LoadDaysLayer(DictionaryIterator *iter)
 			char* Sottotitolo=malloc(c->length);
 			strcpy ( Sottotitolo,  c->value->cstring );
 			
-			
+			c = dict_find(iter, 4 + i*3 +2 );
 			int desc= c->value->uint32;
 			GBitmap *s_menu_icon_image = GetBitmapFromID(desc);
 			
@@ -920,7 +920,6 @@ static void LoadDaysLayer(DictionaryIterator *iter)
 		//lo aggiungo al layer principale
 		layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer_day));
 
-		
 		window_stack_push(window_day, true);
 	}	
 	
@@ -997,7 +996,7 @@ static void LoadHoursLayer(DictionaryIterator *iter)
 			strcpy(Sottotitolo, c->value->cstring);
 
 
-			c = dict_find(iter, 5 + i * 3 + 1);
+			c = dict_find(iter, 5 + i * 3 + 2);
 			int desc = c->value->uint32;
 			GBitmap *s_menu_icon_image = GetBitmapFromID(desc);
 
@@ -1048,7 +1047,6 @@ static void LoadHoursLayer(DictionaryIterator *iter)
 		//lo aggiungo al layer principale
 		layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer_hour));
 
-		
 		window_stack_push(window_hour, true);
 		
 	}
@@ -1103,18 +1101,27 @@ static GBitmap * GetBitmapFromID(int id)
 
 
 
+
+
+
 static void menu_select_callback(int index, void *context)
 {
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "index click: %d", index);
 	if(CurrentCity== -1 && CurrentDay==-1)
 	{
 		//cliccato sulla citta, carico la lista dei giorni
-		RequestListDay(index);
+		//RequestListDay(index);
+		s_menu_items_city[index].title="click";
+		
 	}
 	else if(CurrentCity!= -1 && CurrentDay==-1)
 	{
 		//cliccato sul giorno, carico la lista delle ore
-		RequestListHours(CurrentCity,index);
+		//RequestListHours(CurrentCity,index);
+		s_menu_items_day[index].title="click";
+	}else
+	{
+		s_menu_items_hour[index].title="click";
 	}
 }
 
