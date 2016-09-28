@@ -9,11 +9,7 @@
         ],
         "displayName": "3BMeteo",
         "enableMultiJS": false,
-        "messageKeys": {
-            "WEATHER_CITY_KEY": 2,
-            "WEATHER_ICON_KEY": 0,
-            "WEATHER_TEMPERATURE_KEY": 1
-        },
+        "messageKeys": [],
         "projectType": "native",
         "resources": {
             "media": [

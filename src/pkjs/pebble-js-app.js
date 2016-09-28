@@ -120,24 +120,57 @@ function LoadListaCity()
 	
 }
 
-/*function iconFromWeatherDesc(Desc) {
-	
-  if (Desc =="Sereno" || Desc =="quasi sereno") {
-		//pioggia
-    return 2;
-  } else if  (Desc =="variabile" || Desc =="nuvoloso") {
-		//neve
-    return 3;
-  } else if (Desc == "800") {
-		//nuvole
-    return 1;
-  } else {
-		//sole
-    return 0;
-  }
-}
-*/
 
+var CheckPrecipitazione=true;
+var CheckVento=false;
+var CheckUmidita=true;
+var NumGiorni=7;
+
+
+
+function SaveOpzioni()
+{
+	localStorage.setItem('CheckPrecipitazione', CheckPrecipitazione);
+	localStorage.setItem('CheckVento', CheckVento);
+	localStorage.setItem('CheckUmidita', CheckUmidita);
+	localStorage.setItem('NumGiorni', NumGiorni);
+	
+	console.log("Opzioni Salvate");
+}
+function LoadOpzioni()
+{
+	try {
+      CheckPrecipitazione=JSON.parse(localStorage.getItem('CheckPrecipitazione'));
+			if(CheckPrecipitazione==null)
+				CheckPrecipitazione=true;
+    } catch (e) {
+			CheckPrecipitazione=true;
+    }
+	
+	try {
+      CheckVento=JSON.parse(localStorage.getItem('CheckVento'));
+			if(CheckVento==null)
+				CheckVento=false;
+    } catch (e) {
+			CheckVento=false;
+    }
+	
+	try {
+      CheckUmidita=JSON.parse(localStorage.getItem('CheckUmidita'));
+			if(CheckUmidita==null)
+				CheckUmidita=true;
+    } catch (e) {
+			CheckUmidita=true;
+    }
+	
+	try {
+      NumGiorni=JSON.parse(localStorage.getItem('NumGiorni'));
+			if(NumGiorni==null)
+				NumGiorni=7;
+    } catch (e) {
+			NumGiorni=7;
+    }
+}
 
 
 
@@ -183,7 +216,7 @@ function SendListDay(City)
 		//prendo tutti i dati di ogni giorno ( small ) e li invio
 		MeteoArraySmall[ListaCity[City]].forEach(function (item) {
 			v[n++]=item[0]+" "+item[1];		
-			v[n++]=item[2]+" "+item[3];		
+			v[n++]="Min: "+item[2]+" - Max: "+item[3];		
 			v[n++]=item[4];
 		});
 		
@@ -222,7 +255,26 @@ function SendListHour(City,Day)
 				if(k!=0 && k!=1 && k!="S")
 				{
 					v[n++]=k+" "+target[k][1]+"-"+target[k][2]; //titolo
-					v[n++]=target[k][3]+"/"+target[k][4]+" "+target[k][5]+"/"+target[k][6];	
+					var s="";
+					if( CheckPrecipitazione)
+					{
+						s=target[k][3]+"mm";
+					}
+					if(CheckVento)
+					{
+						if(s!="")
+							s+="/";
+						s+=target[k][4]+" "+target[k][5];
+					}
+					if(CheckUmidita)
+					{
+						if(s!="")
+							s+="/";
+						s+=target[k][6]+"%";
+					}
+					
+					
+					v[n++]=s;
 					v[n++]=target[k][0];//descrizione
 				}
 			}
@@ -297,8 +349,8 @@ function FetchWeather(luogo,callback) {
 		return false;
 	FetchWeatherEnd=false;
   var req = new XMLHttpRequest();
-	console.log('http://lpozzi.it/3bmeteo/?luogo='+luogo);
-  req.open('GET', 'http://lpozzi.it/3bmeteo/?luogo='+luogo, true);
+	console.log('http://lpozzi.it/3bmeteo/?luogo='+luogo+'&ngiorni='+NumGiorni);
+  req.open('GET', 'http://lpozzi.it/3bmeteo/?luogo='+luogo+'&ngiorni='+NumGiorni, true);
   req.onload = function () {
 		console.log(req.readyState);
 		console.log(req.status);
@@ -414,14 +466,13 @@ function ManageIncomingMessage(dict)
 Pebble.addEventListener('ready', function (e) {
   //console.log('connect!' + e.ready);
   console.log("Pronto");
+	LoadOpzioni();
 	LoadMeteoArray();
 	LoadMeteoArraySmall();
 	LoadListaCity();
 	LoadLastUpdate();
 	
 	
-	
-	LastUpdate=0;
 	
 
 	
@@ -445,12 +496,20 @@ Pebble.addEventListener('appmessage', function (e) {
 Pebble.addEventListener('webviewclosed', function (e) {
   console.log('webview closed');
 	try {
-			
+			console.log(e.response);
 			var temp=JSON.parse(decodeURIComponent(e.response));
-			console.log(temp);
-			if(temp!=null)
-				ListaCity=temp;
 			
+			if(temp!=null && temp["ListaCity"]!=null )
+				ListaCity= temp["ListaCity"];
+			
+			CheckPrecipitazione=temp["Opzioni"]["CheckPrecipitazione"];
+			CheckVento=temp["Opzioni"]["CheckVento"];
+			CheckUmidita=temp["Opzioni"]["CheckUmidita"];
+
+			NumGiorni=temp["Opzioni"]["NumGiorni"];
+
+		
+			SaveOpzioni();
 			SaveListaCity();
 			UpdateAll(true,function(){
 				SendListCity();
@@ -458,12 +517,20 @@ Pebble.addEventListener('webviewclosed', function (e) {
 			
     } catch (ee) {
     }
-	
-	
 });
 
 Pebble.addEventListener('showConfiguration', function() {
-	var url = 'http://lpozzi.it/3bmeteo/config.php?jsn='+encodeURIComponent(JSON.stringify(ListaCity));
+	
+	var options={};
+	options["ListaCitta"]=ListaCity;
+	options["Opzioni"]={};
+	options["Opzioni"]["CheckPrecipitazione"]=CheckPrecipitazione;
+	options["Opzioni"]["CheckVento"]=CheckVento;
+	options["Opzioni"]["CheckUmidita"]=CheckUmidita;
+
+	options["Opzioni"]["NumGiorni"]=NumGiorni;
+	
+	var url = 'http://lpozzi.it/3bmeteo/config.php?jsn='+encodeURIComponent(JSON.stringify(options));
 
   Pebble.openURL(url);
 });

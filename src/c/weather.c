@@ -421,7 +421,7 @@ static bool PopReachWindows(Window* window)
 	
 	while(window_stack_get_top_window()!=window)
 	{
-		Window* removed=window_stack_pop(false);
+		window_stack_pop(false);
 	}
 	return true;
 }
