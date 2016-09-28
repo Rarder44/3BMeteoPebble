@@ -422,7 +422,7 @@ Pebble.addEventListener('ready', function (e) {
 	
 	
 	
-	LastUpdate=0;
+	//LastUpdate=0;
 	
 
 	
