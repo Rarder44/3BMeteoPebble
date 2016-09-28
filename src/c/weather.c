@@ -491,7 +491,7 @@ int NCities=0;*/
 
 static void inbox_received_callback(DictionaryIterator *iter, void *context) {
 		
-	
+	//TODO
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "Messaggio ricevuto");
   // nell'1 c'è sempre il messaggio 
 	 	Tuple *t = dict_find(iter, 1);
@@ -572,10 +572,12 @@ static void RequestListCity(void)
 
 static void RequestListDay(int City) 
 {
-	
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "Richiesta lista giorno");
   DictionaryIterator *iter;
+	
   app_message_outbox_begin(&iter);
-
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "Dizionario inizializzato sull'output");
+	
   if (!iter) {
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Errore invio richiesta dati small");
     return;
@@ -587,8 +589,10 @@ static void RequestListDay(int City)
   dict_write_int(iter, 1 , &value, sizeof(int), true);
 	dict_write_int(iter, 2 , &City, sizeof(int), true);
   dict_write_end(iter);
-	
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "messaggio con valore %d",value);
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "ID città %d",City);
 	app_message_outbox_send();
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "Messaggio inviato");
 }
 
 static void RequestListHours(int City,int Hour)
@@ -1110,31 +1114,24 @@ static void menu_select_callback(int index, void *context)
 	if(CurrentCity== -1 && CurrentDay==-1)
 	{
 		//cliccato sulla citta, carico la lista dei giorni
-		//RequestListDay(index);
-		s_menu_items_city[index].title="click";
+		RequestListDay(index);
+		//s_menu_items_city[index].title="click";
 		
 	}
 	else if(CurrentCity!= -1 && CurrentDay==-1)
 	{
 		//cliccato sul giorno, carico la lista delle ore
-		//RequestListHours(CurrentCity,index);
-		s_menu_items_day[index].title="click";
+		RequestListHours(CurrentCity,index);
+		//s_menu_items_day[index].title="click";
 	}else
 	{
-		s_menu_items_hour[index].title="click";
+		//s_menu_items_hour[index].title="click";
 	}
 }
 
 static void window_load(Window *window) {
- 
-	
-  
-  //app_sync_init(&s_sync, s_sync_buffer, sizeof(s_sync_buffer),      initial_values, ARRAY_LENGTH(initial_values),      sync_tuple_changed_callback, sync_error_callback, NULL);
-	app_message_register_inbox_received(inbox_received_callback);
+ 	app_message_register_inbox_received(inbox_received_callback);
 	app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
-	
-
-  //RequestForceUpdate();
 }
 
 

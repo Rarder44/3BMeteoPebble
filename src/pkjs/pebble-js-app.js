@@ -379,6 +379,7 @@ function RemoveCityFromIndex(CityIndex)
 
 function ManageIncomingMessage(dict)
 {
+	console.log("messaggio ricevuto: "+JSON.stringify(dict));
 	if(dict[1]==Messages.IncomingRequestListCity)
 	{
 		SendListCity();
