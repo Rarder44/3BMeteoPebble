@@ -183,7 +183,7 @@ static void inbox_received_callback(DictionaryIterator *iter, void *context) {
 
 				case MESSAGE_INBOX_LIST_HOUR:
 				 APP_LOG(APP_LOG_LEVEL_DEBUG, "Lista ore");
-						//LoadHoursLayer(iter);
+						LoadHoursLayer(iter);
 				break;
 				
 			}
@@ -359,6 +359,7 @@ static void FreeLayerCity()
 		for(int i=0;i<s_menu_items_city_count;i++)
 				free((void*)s_menu_items_city[i].title);
 		free(s_menu_items_city);
+		s_menu_items_city=0;
 	}
 	if (s_simple_menu_layer_city != 0)
 	{
@@ -379,6 +380,7 @@ static void FreeLayerDay()
 				free((void*)s_menu_items_day[i].subtitle);
 		}
 		free(s_menu_items_day);
+		s_menu_items_day=0;
 	}
 	if (s_simple_menu_layer_day != 0)
 	{
@@ -397,10 +399,11 @@ static void FreeLayerHour()
 				gbitmap_destroy(s_menu_items_hour[i].icon);
 				free((void*)s_menu_items_hour[i].title);
 				free((void*)s_menu_items_hour[i].subtitle);
-			
 		}
 		free(s_menu_items_hour);
+		s_menu_items_hour=0;
 	}
+	
 	if (s_simple_menu_layer_hour != 0)
 	{
 		layer_remove_from_parent((Layer *)s_simple_menu_layer_hour);
@@ -416,13 +419,14 @@ static void FreeLayerHour()
 
 static bool PopReachWindows(Window* window)
 {
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "controllo se la win esiste");
 	if(!window_stack_contains_window(window))
 		return false;
 	
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "Esiste! inizio ciclo pop win");
 	while(window_stack_get_top_window()!=window)
 	{
 		Window* removed=window_stack_pop(false);
-		window_unload(removed);
 	}
 	return true;
 }
@@ -443,8 +447,20 @@ static Window* Crea3BWindow()
 
 
 
+static SimpleMenuLayer* SimpleMenuLateyCreateAndBind(Window* window,SimpleMenuSection* section)
+{
+	//ottengo il window layer
+	Layer *window_layer = window_get_root_layer(window);
+	GRect bounds = layer_get_frame(window_layer);
 
+	//creo il nuovo layer (simple menu layer)
+	SimpleMenuLayer* temp = simple_menu_layer_create(bounds, window, section, 1, NULL);
 
+	//lo aggiungo al window layer
+	layer_add_child(window_layer, simple_menu_layer_get_layer(temp));
+
+	return temp;
+}
 
 
 
@@ -509,25 +525,17 @@ static void LoadCityLayer(DictionaryIterator *iter)
 				.items = s_menu_items_city,
 		};
 
-		
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Controllo se la win");
 		if(!PopReachWindows(window_city))
 		{
 			window_city = Crea3BWindow();
 			window_stack_push(window_city, true);
 		}
 		
-		//ottengo il layer su cui aggiungere il mio menu
-		Layer *window_layer = window_get_root_layer(window_city);
-		GRect bounds = layer_get_frame(window_layer);
-
-		//creo il nuovo layer
-		s_simple_menu_layer_city = simple_menu_layer_create(bounds, window_city, s_menu_sections_city, 1, NULL);
-
-		//lo aggiungo al layer principale
-		layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer_city));
-		return;
+		//creo il nuovo layer e lo aggiungo al layer window
+		s_simple_menu_layer_city=SimpleMenuLateyCreateAndBind(window_city,s_menu_sections_city);
 		
-
+		
 	}
 }
 
@@ -580,7 +588,6 @@ static void LoadDaysLayer(DictionaryIterator *iter)
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Old var liberate");
 		
 		
-		return;
 
 		
 		for (int i = 0;i < NDays;i++)
@@ -608,6 +615,8 @@ static void LoadDaysLayer(DictionaryIterator *iter)
 		}
 		
 		
+		
+		
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Menu items creati");
 
 		//creo il numeu e gli associo gli item
@@ -617,25 +626,23 @@ static void LoadDaysLayer(DictionaryIterator *iter)
 		};
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "items associati alla sezione");
 
-		
+		bool WinJustCreated=false;
 		if(!PopReachWindows(window_day))
 		{
 			window_day = Crea3BWindow();
-			window_stack_push(window_day, true);
+			WinJustCreated=true;
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "window_day creata");
 		}
 		
 		
 		
-		//ottengo il layer su cui aggiungere il mio menu
-		Layer *window_layer = window_get_root_layer(window_day);
-		GRect bounds = layer_get_frame(window_layer);
-
-		//creo il nuovo layer
-		s_simple_menu_layer_day = simple_menu_layer_create(bounds, window_day, s_menu_sections_day, 1, NULL);
-
-		//lo aggiungo al layer principale
-		layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer_day));
-
+		
+		s_simple_menu_layer_day=SimpleMenuLateyCreateAndBind(window_day,s_menu_sections_day);
+		
+	
+		
+		if(WinJustCreated)
+			window_stack_push(window_day, true);
 	}	
 	
 }
@@ -683,22 +690,20 @@ static void LoadHoursLayer(DictionaryIterator *iter)
 		else
 			return;
 
+		
+		
 		//resetto le variabili gia inizializzate
-		if (s_menu_items_hour != 0)
-			free(s_menu_items_hour);
+		FreeLayerHour();
+		
+
 		s_menu_items_hour = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NHours);
 		s_menu_items_hour_count=NHours;
-		if (s_simple_menu_layer_hour != 0)
-		{
-			layer_remove_from_parent((Layer *)s_simple_menu_layer_hour);
-			simple_menu_layer_destroy(s_simple_menu_layer_hour);
-			s_simple_menu_layer_hour = 0;
-		}
-
-
+		
 
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Numero fasce orarie: %d", NHours);
 
+		
+		
 
 		for (int i = 0;i < NHours;i++)
 		{
@@ -721,10 +726,9 @@ static void LoadHoursLayer(DictionaryIterator *iter)
 				.callback = menu_select_callback,
 				.icon = s_menu_icon_image,
 			};
-
-			//gbitmap_destroy(s_menu_icon_image);
 		}
 
+		
 
 		//creo il numeu e gli associo gli item
 		s_menu_sections_hour[0] = (SimpleMenuSection) {
@@ -732,37 +736,25 @@ static void LoadHoursLayer(DictionaryIterator *iter)
 				.items = s_menu_items_hour,
 		};
 
-			//window_hour
-		if(window_hour!=0)
+		
+		
+		bool WinJustCreated=false;
+		if(!PopReachWindows(window_hour))
 		{
-			APP_LOG(APP_LOG_LEVEL_DEBUG, "trovata vecchia window_day");
-			window_destroy(window_hour);
-			APP_LOG(APP_LOG_LEVEL_DEBUG, "vecchia window distrutta");
+			window_hour = Crea3BWindow();
+			WinJustCreated=true;
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "window_hour creata");
 		}
 		
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "controllo win completato");
-		
-		window_hour = window_create();
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Window creata");
-		
-		window_set_background_color(window_hour, GColorFromHEX(0x1461A1));
-		window_set_window_handlers(window_hour, (WindowHandlers) {
-			.unload = window_unload
-		});
 		
 		
+		s_simple_menu_layer_hour=SimpleMenuLateyCreateAndBind(window_hour,s_menu_sections_hour);
 		
-		//ottengo il layer su cui aggiungere il mio menu
-		Layer *window_layer = window_get_root_layer(window_hour);
-		GRect bounds = layer_get_frame(window_layer);
 
-		//creo il nuovo layer
-		s_simple_menu_layer_hour = simple_menu_layer_create(bounds, window_hour, s_menu_sections_hour, 1, NULL);
-
-		//lo aggiungo al layer principale
-		layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer_hour));
-
-		window_stack_push(window_hour, true);
+		
+		if(WinJustCreated)
+			window_stack_push(window_hour, true);
+		
 		
 	}
 
