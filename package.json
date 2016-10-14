@@ -14,14 +14,15 @@
         "resources": {
             "media": [
                 {
-                    "file": "images/icon.png",
-                    "name": "icon",
+                    "file": "images/domanda.png",
+                    "name": "DOMANDA",
                     "targetPlatforms": null,
                     "type": "bitmap"
                 },
                 {
-                    "file": "images/domanda.png",
-                    "name": "DOMANDA",
+                    "file": "images/LOGO.png",
+                    "menuIcon": true,
+                    "name": "LOGO",
                     "targetPlatforms": null,
                     "type": "bitmap"
                 },

@@ -158,31 +158,26 @@ static void FreeLayerHour();
 static void inbox_received_callback(DictionaryIterator *iter, void *context) {
 		
 
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "Messaggio ricevuto");
-  // nell'1 c'è sempre il messaggio 
 	 	Tuple *t = dict_find(iter, 1);
 		if(t) {
 			int num=t->value->uint32;
-			APP_LOG(APP_LOG_LEVEL_DEBUG, "mex n: %d", num);
 			
-			//stampare una variabile
-			/*char* snum=malloc(sizeof(char)*10);
-			snprintf(snum, 10, "%d", num);*/
+			
 			
 			 switch (num) {
 				case MESSAGE_INBOX_LIST_CITY:;	
 
-				 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Lista città");
+				 		
 				 		LoadCityLayer(iter);
 				break;
 
 				case MESSAGE_INBOX_LIST_DAY:
-						APP_LOG(APP_LOG_LEVEL_DEBUG, "Lista gioni");
+						
 						LoadDaysLayer(iter);
 				break;
 
 				case MESSAGE_INBOX_LIST_HOUR:
-				 APP_LOG(APP_LOG_LEVEL_DEBUG, "Lista ore");
+				 
 						LoadHoursLayer(iter);
 				break;
 				
@@ -204,7 +199,7 @@ static void RequestListCity(void)
   app_message_outbox_begin(&iter);
 
   if (!iter) {
-			APP_LOG(APP_LOG_LEVEL_DEBUG, "Errore invio richiesta lista città");
+			
     return;
   }
 
@@ -217,14 +212,14 @@ static void RequestListCity(void)
 
 static void RequestListDay(int City) 
 {
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "Richiesta lista giorno");
+	
   DictionaryIterator *iter;
 	
   app_message_outbox_begin(&iter);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "Dizionario inizializzato sull'output");
+	
 	
   if (!iter) {
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Errore invio richiesta dati small");
+		
     return;
   }
 	
@@ -234,10 +229,10 @@ static void RequestListDay(int City)
   dict_write_int(iter, 1 , &value, sizeof(int), true);
 	dict_write_int(iter, 2 , &City, sizeof(int), true);
   dict_write_end(iter);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "messaggio con valore %d",value);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "ID città %d",City);
+	
+	
 	app_message_outbox_send();
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "Messaggio inviato");
+	
 }
 
 static void RequestListHours(int City,int Hour)
@@ -246,7 +241,7 @@ static void RequestListHours(int City,int Hour)
   app_message_outbox_begin(&iter);
 
   if (!iter) {
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Errore invio richiesta dati orari");
+		
     return;
   }
 
@@ -320,7 +315,7 @@ static int CurrentDay=-1;
 
 static void window_unload(Window *window) {
 
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "Window distrutta");
+	
 	if( window == window_hour)
 	{
 		CurrentDay=-1;
@@ -419,14 +414,14 @@ static void FreeLayerHour()
 
 static bool PopReachWindows(Window* window)
 {
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "controllo se la win esiste");
+	
 	if(!window_stack_contains_window(window))
 		return false;
 	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "Esiste! inizio ciclo pop win");
+	
 	while(window_stack_get_top_window()!=window)
 	{
-		Window* removed=window_stack_pop(false);
+		window_stack_pop(false);
 	}
 	return true;
 }
@@ -498,7 +493,7 @@ static void LoadCityLayer(DictionaryIterator *iter)
 		CurrentCity=-1;
 		CurrentDay=-1;
 		
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Numero città: %d", NCities);
+		
 		
 		
 		
@@ -525,7 +520,7 @@ static void LoadCityLayer(DictionaryIterator *iter)
 				.items = s_menu_items_city,
 		};
 
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Controllo se la win");
+		
 		if(!PopReachWindows(window_city))
 		{
 			window_city = Crea3BWindow();
@@ -562,7 +557,7 @@ static void LoadDaysLayer(DictionaryIterator *iter)
 	if (n) {
 		int NDays = n->value->uint8;
 		
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Numero giorni: %d", NDays);
+		
 		
 		//ottengo l'id della citta selezionata
 		n = dict_find(iter, 3);
@@ -572,7 +567,7 @@ static void LoadDaysLayer(DictionaryIterator *iter)
 		else 
 			return;
 		
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "id città: %d", 	CurrentCity);
+		
 		
 		
 		
@@ -585,7 +580,7 @@ static void LoadDaysLayer(DictionaryIterator *iter)
 		
 		CurrentDay=-1;
 		
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Old var liberate");
+		
 		
 		
 
@@ -617,21 +612,21 @@ static void LoadDaysLayer(DictionaryIterator *iter)
 		
 		
 		
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Menu items creati");
+		
 
 		//creo il numeu e gli associo gli item
 		s_menu_sections_day[0] = (SimpleMenuSection) {
 			.num_items = NDays,
 			.items = s_menu_items_day,
 		};
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "items associati alla sezione");
+		
 
 		bool WinJustCreated=false;
 		if(!PopReachWindows(window_day))
 		{
 			window_day = Crea3BWindow();
 			WinJustCreated=true;
-			APP_LOG(APP_LOG_LEVEL_DEBUG, "window_day creata");
+			
 		}
 		
 		
@@ -700,7 +695,7 @@ static void LoadHoursLayer(DictionaryIterator *iter)
 		s_menu_items_hour_count=NHours;
 		
 
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Numero fasce orarie: %d", NHours);
+		
 
 		
 		
@@ -743,7 +738,7 @@ static void LoadHoursLayer(DictionaryIterator *iter)
 		{
 			window_hour = Crea3BWindow();
 			WinJustCreated=true;
-			APP_LOG(APP_LOG_LEVEL_DEBUG, "window_hour creata");
+			
 		}
 		
 		
@@ -759,30 +754,6 @@ static void LoadHoursLayer(DictionaryIterator *iter)
 	}
 
 }
-/*
-static void LoadSmallInfoLayer()
-{
-	Layer *window_layer = window_get_root_layer(window_city);
-	GRect bounds = layer_get_bounds(window_layer);
-
-	s_icon_layer = bitmap_layer_create(GRect(0, 10, bounds.size.w, 80));
-	layer_add_child(window_layer, bitmap_layer_get_layer(s_icon_layer));
-
-	s_temperature_layer = text_layer_create(GRect(0, 90, bounds.size.w, 32));
-	text_layer_set_text_color(s_temperature_layer, GColorWhite);
-	text_layer_set_background_color(s_temperature_layer, GColorClear);
-	text_layer_set_font(s_temperature_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
-	text_layer_set_text_alignment(s_temperature_layer, GTextAlignmentCenter);
-	layer_add_child(window_layer, text_layer_get_layer(s_temperature_layer));
-
-	s_city_layer = text_layer_create(GRect(0, 122, bounds.size.w, 32));
-	text_layer_set_text_color(s_city_layer, GColorWhite);
-	text_layer_set_background_color(s_city_layer, GColorClear);
-	text_layer_set_font(s_city_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
-	text_layer_set_text_alignment(s_city_layer, GTextAlignmentCenter);
-	layer_add_child(window_layer, text_layer_get_layer(s_city_layer));
-
-}*/
 
 
 
@@ -790,7 +761,7 @@ static void LoadSmallInfoLayer()
 
 static GBitmap * GetBitmapFromID(int id)
 {
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "id img %d",id);
+	
 	if(id>IconNum)
 	{
 		return gbitmap_create_with_resource(RESOURCE_ID_DOMANDA);
@@ -813,7 +784,7 @@ static GBitmap * GetBitmapFromID(int id)
 
 static void menu_select_callback(int index, void *context)
 {
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "index click: %d", index);
+	
 	if(CurrentCity== -1 && CurrentDay==-1)
 	{
 		//cliccato sulla citta, carico la lista dei giorni
@@ -855,7 +826,6 @@ static void deinit(void) {
 	window_destroy(window_day);
 	window_destroy(window_hour);
 
-  /*app_sync_deinit(&s_sync);*/
 }
 
 int main(void) {
