@@ -409,8 +409,6 @@ function FetchWeather(luogo,callback) {
 				MeteoArray[luogo]=response;
 				MeteoArraySmall[luogo]=[];
 				response.forEach(function (item) {
-					//MeteoArraySmall[luogo].push(item[0]);
-					//MeteoArraySmall[luogo].push(item[1]);
 					var temp=[];
 					item["S"].forEach(function (item1) {
 						temp.push(item1);
