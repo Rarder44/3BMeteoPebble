@@ -21,6 +21,14 @@ static SimpleMenuSection  s_menu_sections_hour[1];
 static SimpleMenuItem* s_menu_items_hour=0;
 static int s_menu_items_hour_count=0;
 
+static DictationSession *s_dictation_session;
+
+
+static ActionMenuLevel *ActionMenu_root_level;
+static GColor ActionMenu_color, ActionMenu_visible_color;
+static ActionMenuConfig configActionMenu; 
+
+
 enum MessageKey {
 	MESSAGE_REQUEST_LIST_CITY = 0x0,         
 	MESSAGE_REQUEST_LIST_DAY = 0x1,
@@ -148,12 +156,13 @@ static int IconNum=103;
 static void LoadCityLayer();
 static void LoadDaysLayer();
 static void LoadHoursLayer();
+static void menu_voice_select_callback(int index, void *context);
 static void menu_select_callback(int index, void *context);
 static GBitmap * GetBitmapFromID(int id);
 static void FreeLayerCity();
 static void FreeLayerDay();
 static void FreeLayerHour();
-
+static void RequestAddCity(char* City);
 
 static void inbox_received_callback(DictionaryIterator *iter, void *context) {
 		
@@ -163,6 +172,7 @@ static void inbox_received_callback(DictionaryIterator *iter, void *context) {
 			int num=t->value->uint32;
 			
 			
+			APP_LOG(APP_LOG_LEVEL_INFO, "msg: %d", num);
 			
 			 switch (num) {
 				case MESSAGE_INBOX_LIST_CITY:;	
@@ -191,9 +201,40 @@ static void inbox_received_callback(DictionaryIterator *iter, void *context) {
 
 
 
+static void RequestAddCity(char* City) 
+{
+  DictionaryIterator *iter;
+  app_message_outbox_begin(&iter);
 
+  if (!iter) {
+    return;
+  }
 
-static void RequestListCity(void) 
+	int value=MESSAGE_REQUEST_ADD_CITY;
+	//l'1 la uso come posizione per il messaggio da inviare
+  dict_write_int(iter, 1 , &value, sizeof(int), true);
+	dict_write_cstring(iter, 2, City);
+  dict_write_end(iter);
+  app_message_outbox_send();
+}
+static void RequestRemoveCity(int City) 
+{
+ 	DictionaryIterator *iter;
+  app_message_outbox_begin(&iter);
+
+  if (!iter) {
+    return;
+  }
+
+	int value=MESSAGE_REQUEST_REMOVE_CITY;
+	//l'1 la uso come posizione per il messaggio da inviare
+  dict_write_int(iter, 1 , &value, sizeof(int), true);
+	dict_write_int(iter, 2 , &City, sizeof(int), true);
+  dict_write_end(iter);
+  app_message_outbox_send();
+}
+
+static void RequestListCity(void)
 {
   DictionaryIterator *iter;
   app_message_outbox_begin(&iter);
@@ -442,6 +483,10 @@ static Window* Crea3BWindow()
 
 
 
+
+
+
+
 static SimpleMenuLayer* SimpleMenuLateyCreateAndBind(Window* window,SimpleMenuSection* section)
 {
 	//ottengo il window layer
@@ -460,7 +505,57 @@ static SimpleMenuLayer* SimpleMenuLateyCreateAndBind(Window* window,SimpleMenuSe
 
 
 
-//static int CurrentHour=-1;
+
+
+
+/*
+MenuLayerCallbacks cbacks;
+void menulayer_select_long_click(MenuLayer *menu_layer, MenuIndex *cell_index, void *callback_context)
+{
+	APP_LOG(APP_LOG_LEVEL_INFO, "Long");
+}*/
+
+void select_long(ClickRecognizerRef recognizer, void *context) {
+  Window *window = (Window *)context;
+				
+	int i=simple_menu_layer_get_selected_index(s_simple_menu_layer_city);
+	APP_LOG(APP_LOG_LEVEL_INFO, "Indice: %d", i);
+	APP_LOG(APP_LOG_LEVEL_INFO, "NumeroCitta: %d", s_menu_items_city_count);
+	APP_LOG(APP_LOG_LEVEL_INFO, "CurrentCity: %d", CurrentCity);
+	APP_LOG(APP_LOG_LEVEL_INFO, "CurrentDay: %d", CurrentDay);
+	
+	if(i<(s_menu_items_city_count-1) && CurrentCity== -1 && CurrentDay==-1)
+		action_menu_open(&configActionMenu);
+	
+}
+void downButtonClicked(ClickRecognizerRef recognizer, void *context){
+	 menu_layer_set_selected_next((MenuLayer *)s_simple_menu_layer_city, false,  MenuRowAlignCenter, false);
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "DOWN Button"); 
+}
+void upButtonClicked(ClickRecognizerRef recognizer, void *context){
+	 menu_layer_set_selected_next((MenuLayer *)s_simple_menu_layer_city, true,  MenuRowAlignCenter, false);
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "UP Button"); 
+}
+void selectButtonClicked(ClickRecognizerRef recognizer, void *context){
+	// menu_layer_set_selected_next((MenuLayer *)s_simple_menu_layer_city, true,  MenuRowAlignCenter, false);
+	int i=simple_menu_layer_get_selected_index(s_simple_menu_layer_city);
+	s_menu_items_city[i].callback(i,NULL);
+	/*if(i<(s_menu_items_city_count-1))
+		menu_select_callback(i,NULL);*/
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "SELECT Button"); 
+}
+
+void config_provider(Window *window) {
+
+	window_single_click_subscribe(BUTTON_ID_DOWN, downButtonClicked); // override menu?
+	window_single_click_subscribe(BUTTON_ID_UP, upButtonClicked); // override menu?
+	window_single_click_subscribe(BUTTON_ID_SELECT, selectButtonClicked); // override menu?
+	window_long_click_subscribe(BUTTON_ID_SELECT, 600, select_long, NULL);
+	
+}
+
+
+
 
 /*
 	Dizionario:
@@ -487,7 +582,8 @@ static void LoadCityLayer(DictionaryIterator *iter)
 		//resetto le variabili gia inizializzate
 		FreeLayerCity();
 		
-		s_menu_items_city = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*NCities);
+		//+ 1 per il pulsante, aggiungi città
+		s_menu_items_city = (SimpleMenuItem*)malloc(sizeof(SimpleMenuItem)*(NCities+1));
 		s_menu_items_city_count=NCities;
 		
 		CurrentCity=-1;
@@ -496,8 +592,7 @@ static void LoadCityLayer(DictionaryIterator *iter)
 		
 		
 		
-		
-		
+		//creo gli item del menu con le città
 		for (int i = 0;i < NCities;i++)
 		{
 			Tuple *c = dict_find(iter, 3 + i);
@@ -511,12 +606,26 @@ static void LoadCityLayer(DictionaryIterator *iter)
 				};
 			}
 		}
+	
 		
+		//creo l'item del menu "pulsante aggiungi"
+		if(true)
+		{
+			char* Titolo=malloc(16);
+			strcpy ( Titolo,  "+ Aggiungi" );
+
+			s_menu_items_city[s_menu_items_city_count] = (SimpleMenuItem) {
+				.title = Titolo,
+				.callback = menu_voice_select_callback,
+			};
+		}
+		
+		s_menu_items_city_count++;
 		
 		
 		//creo il numeu e gli associo gli item
 		s_menu_sections_city[0] = (SimpleMenuSection) {
-			.num_items = NCities,
+			.num_items = s_menu_items_city_count,
 				.items = s_menu_items_city,
 		};
 
@@ -530,6 +639,13 @@ static void LoadCityLayer(DictionaryIterator *iter)
 		//creo il nuovo layer e lo aggiungo al layer window
 		s_simple_menu_layer_city=SimpleMenuLateyCreateAndBind(window_city,s_menu_sections_city);
 		
+		
+		menu_layer_set_click_config_onto_window((MenuLayer *) s_simple_menu_layer_city,  window_city);
+		window_set_click_config_provider(window_city,(ClickConfigProvider) config_provider);
+		
+		/*menu_layer_set_callbacks((MenuLayer *)s_simple_menu_layer_city, NULL, (MenuLayerCallbacks) {
+    .select_long_click = menulayer_select_long_click
+  });*/
 		
 	}
 }
@@ -761,11 +877,8 @@ static void LoadHoursLayer(DictionaryIterator *iter)
 
 static GBitmap * GetBitmapFromID(int id)
 {
-	
 	if(id>IconNum)
-	{
 		return gbitmap_create_with_resource(RESOURCE_ID_DOMANDA);
-	}
 	else
 		return gbitmap_create_with_resource(WEATHER_ICONS[id]);
 }
@@ -773,17 +886,30 @@ static GBitmap * GetBitmapFromID(int id)
 
 
 
+static void ActionMenu_performed_callback(ActionMenu *action_menu, const ActionMenuItem *action, void *context) 
+{
+	action_menu_close(action_menu,false);
+	int index=simple_menu_layer_get_selected_index(s_simple_menu_layer_city);
+  RequestRemoveCity(index);
+}
 
 
+static void menu_voice_select_callback(int index, void *context)
+{
+	
+	
+	APP_LOG(APP_LOG_LEVEL_INFO, "Tasto aggiungi premuto, indice: %d", index);
+	dictation_session_start(s_dictation_session);	
+	
+	
 
-
-
-
-
+}
 
 
 static void menu_select_callback(int index, void *context)
 {
+	
+	
 	
 	if(CurrentCity== -1 && CurrentDay==-1)
 	{
@@ -803,10 +929,25 @@ static void menu_select_callback(int index, void *context)
 	}
 }
 
+
+static void dictation_session_callback(DictationSession *session, DictationSessionStatus status,char *transcription, void *context)
+{
+  APP_LOG(APP_LOG_LEVEL_INFO, "Dictation status: %d", (int)status);
+	if(status == DictationSessionStatusSuccess) {
+		APP_LOG(APP_LOG_LEVEL_INFO, "Ascoltato: %s",transcription) ;
+		RequestAddCity(transcription);
+	} else {
+		APP_LOG(APP_LOG_LEVEL_INFO, "Errore durante l'ascolto.") ;
+	}
+}
+
+
 static void window_load(Window *window) {
  	app_message_register_inbox_received(inbox_received_callback);
 	app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
 }
+
+
 
 
 
@@ -819,13 +960,31 @@ static void init(void) {
   });
   window_stack_push(window_city, true);
 
+	// Create new dictation session
+	s_dictation_session = dictation_session_create(512,dictation_session_callback, NULL);
+
+	
+	ActionMenu_root_level =action_menu_level_create(1);
+	action_menu_level_add_action(ActionMenu_root_level, "Cancella", ActionMenu_performed_callback, NULL);
+	ActionMenu_color = GColorFromHEX(0x1461A1);
+  ActionMenu_visible_color = gcolor_legible_over(ActionMenu_color);
+	configActionMenu = (ActionMenuConfig) {
+    .root_level = ActionMenu_root_level,
+    .colors = {
+      .background = ActionMenu_color,
+      .foreground = ActionMenu_visible_color,
+    },
+    .align = ActionMenuAlignTop
+  };
+
 }
 
 static void deinit(void) {
   window_destroy(window_city);
 	window_destroy(window_day);
 	window_destroy(window_hour);
-
+	action_menu_hierarchy_destroy(ActionMenu_root_level, NULL, NULL);
+	dictation_session_destroy(s_dictation_session);
 }
 
 int main(void) {

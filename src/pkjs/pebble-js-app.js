@@ -1,3 +1,4 @@
+
 if (!Date.now) {
     Date.now = function() { return new Date().getTime(); };
 }
@@ -340,15 +341,19 @@ function UpdateAll(forceUpdate,callback)
 {
 		//forceUpdate=true;
 		//se è passata piu di un ora o l'aggiornamento è forzato
+	
+	console.log("Ultimo aggiornamento: "+(Date.nowSecond()-LastUpdate));
 		if((Date.nowSecond()-LastUpdate)>3600 || forceUpdate)
 		{
 			//ottengo il numero delle città e inizializzo un contatore
 			var Len=ListaCity.length;
 			console.log("Numero Di citta: "+Len);
-			var current=-1;
+			//var current=-1;
 			MeteoArray={};
 			MeteoArraySmall={};
-			var LoopUpdate=function(){
+			
+			
+			/*var LoopUpdate=function(){
 				
 				//	aumento il contatore
 				current++;
@@ -366,10 +371,18 @@ function UpdateAll(forceUpdate,callback)
 					callback();
 				}	
 				
-			};
+			};*/
 		
 			//richiamo il loop e la callback va a settare la data di aggiornamento dei dati 
-			LoopUpdate();				
+			//LoopUpdate();	
+			console.log("Richiamo FetchWeatherArray");
+			var ftemp=function(){
+				LastUpdate=Date.nowSecond();
+				SaveLastUpdate();
+				callback();
+			};
+			FetchWeatherArray(ListaCity,ftemp);
+			
 		}	
 		else
 			callback();
@@ -436,31 +449,112 @@ function FetchWeather(luogo,callback) {
 
 
 
+
+function FetchWeatherArray(Arrayluoghi,callback) {
+	console.log("Iniziato FetchWeatherArray - stato Fetch:"+FetchWeatherEnd);
+	if(!FetchWeatherEnd)
+		return false;
+	FetchWeatherEnd=false;
+  var req = new XMLHttpRequest();
+	console.log("Controllo lunghezza");
+	if (Arrayluoghi.length==0)
+	{
+			console.log("Numero di Luoghi uguale a 0");
+		FetchWeatherEnd=true;
+			callback();
+			return;
+	}
+	
+	var str=Arrayluoghi.join(";");
+	console.log('http://lpozzi.it/3bmeteo/?luoghi='+str+'&ngiorni='+NumGiorni+'&TipoDati='+TipoDati);
+  req.open('GET', 'http://lpozzi.it/3bmeteo/?luoghi='+str+'&ngiorni='+NumGiorni+'&TipoDati='+TipoDati, true);
+  req.onload = function () {
+		console.log(req.readyState);
+		console.log(req.status);
+    if (req.readyState === 4) {
+      if (req.status === 200) {
+        console.log(req.responseText);
+        var response = JSON.parse(req.responseText);
+				for (var key in response) {
+						if (response.hasOwnProperty(key)) {
+								MeteoArray[key]=response[key];
+								MeteoArraySmall[key]=[];
+								response[key].forEach(function (item) {
+									var temp=[];
+									item["S"].forEach(function (item1) {
+										temp.push(item1);
+										});
+									MeteoArraySmall[key].push(temp);
+								});
+						}
+				}
+				
+				
+				SaveMeteoArray();
+				SaveMeteoArraySmall();
+				FetchWeatherEnd=true;
+				console.log("fine fetch");
+				callback();
+        /*Pebble.sendAppMessage({
+					1: "ASD" + '\xB0C',
+          2: icon,         
+          3: city
+        });*/
+      } else {
+        console.log('Error');
+      }
+    }
+  };
+  req.send(null);
+	return true;
+}
+
+
 function AddCity(City,callback)
 {
-	if(typeof ListaCity ==="undefined" || ListaCity.constructor !== Array)
-	  ListaCity={};
+	console.log("Citta da aggiungere:"+City);
 	
-	ListaCity.push(City);
- 	SaveListaCity();
-	FetchWeather(City,callback);
+		//prendo il nome corretto e lo inserisco nella lista
+		if(typeof ListaCity ==="undefined" || ListaCity.constructor !== Array)
+	  ListaCity={};
+		
+		var Nome=FindInAllCity(City.toLowerCase());
+		console.log("Cerco la citta:"+Nome);
+		if(Nome==-1)
+		{
+			//citta non trovata
+		}
+		else if(Nome==-2)
+		{
+			//ci sono piu citta che iniziano con quel nome
+		}
+		else
+		{
+			ListaCity.push(Nome);
+ 			SaveListaCity();
+			FetchWeather(Nome,callback);
+		}
+
+	
 }
 
 function RemoveCity(City)
 {
+	console.log("citta da eliminare:"+City);
 	if(typeof ListaCity ==="undefined" || ListaCity.constructor !== Array)
 	  ListaCity={};
  	else
 	{
-		var indice=ListaCity.indexOf(City);
-		if(indice!=-1)
-			ListaCity.splice(indice,1);
-		
-		delete MeteoArray[City];
-		delete MeteoArraySmall[City];
-		
+		if(City<ListaCity.length)
+		{
+			console.log("Nome citta da eliminare:"+ListaCity[City]);
+			ListaCity.splice(City,1);
+			delete MeteoArray[ListaCity[City]];
+			delete MeteoArraySmall[ListaCity[City]];
+		}
 	}
 	SaveListaCity();
+	SendListCity();
 }
 function RemoveCityFromIndex(CityIndex)
 {
