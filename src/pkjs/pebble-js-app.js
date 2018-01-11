@@ -1,3 +1,5 @@
+var TipoDati;
+
 
 if (!Date.now) {
     Date.now = function() { return new Date().getTime(); };
@@ -77,6 +79,7 @@ function LoadMeteoArray()
        MeteoArray=JSON.parse(localStorage.getItem('MeteoArray'));
 			if(MeteoArray==null)
 				MeteoArray={};
+			console.log("Caricato MeteoArray: "+JSON.stringify(MeteoArray));
     } catch (e) {
        MeteoArray={};
     }
@@ -116,7 +119,7 @@ function LoadListaCity()
 				ListaCity=[];
     } catch (e) {
 	
-       ListaCity=[]
+       ListaCity=[];
     }
 	
 }
@@ -134,10 +137,10 @@ function LoadTipoDati()
       TipoDati=JSON.parse(localStorage.getItem('TipoDati'));
 			console.log(TipoDati);
 			if(TipoDati==null)
-				TipoDati="Semplice"
+				TipoDati="Semplice";
     } catch (e) {
 	
-      	TipoDati="Semplice"
+      	TipoDati="Semplice";
     }
 	
 }
@@ -147,7 +150,7 @@ var CheckPrecipitazione=true;
 var CheckVento=false;
 var CheckUmidita=true;
 var NumGiorni=7;
-var TipoDati;
+
 
 
 function SaveOpzioni()
@@ -197,9 +200,9 @@ function LoadOpzioni()
 try {
       TipoDati=JSON.parse(localStorage.getItem('TipoDati'));
 			if(TipoDati==null)
-				TipoDati="Semplice"
+				TipoDati="Semplice";
     } catch (e) {
-      	TipoDati="Semplice"
+      	TipoDati="Semplice";
     }
 }
 
